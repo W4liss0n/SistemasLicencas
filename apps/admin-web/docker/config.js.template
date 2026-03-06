@@ -1,0 +1,7 @@
+window.__ADMIN_WEB_CONFIG__ = Object.assign(
+  {},
+  window.__ADMIN_WEB_CONFIG__ || {},
+  {
+    adminWebEnableMutations: ${ADMIN_WEB_ENABLE_MUTATIONS}
+  }
+);

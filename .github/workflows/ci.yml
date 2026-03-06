@@ -1,0 +1,85 @@
+name: ci
+
+on:
+  push:
+    paths:
+      - 'apps/api/**'
+      - 'scripts/**'
+      - 'docs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'docker-compose.yml'
+      - 'docker-compose.prod.yml'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'apps/api/**'
+      - 'scripts/**'
+      - 'docs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'docker-compose.yml'
+      - 'docker-compose.prod.yml'
+      - '.github/workflows/ci.yml'
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      PORT: 3001
+      API_PREFIX: /api/v2
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sistema_licencas_v2
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-secret-at-least-32-characters
+      REQUEST_TIMEOUT_MS: 3000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check legacy isolation
+        run: npm run check:isolation
+
+      - name: Typecheck
+        run: npm run api:typecheck
+
+      - name: Unit tests
+        run: npm run api:test
+
+      - name: Generate OpenAPI
+        run: npm run api:openapi:generate
+
+      - name: Validate OpenAPI
+        run: npm run api:openapi:validate
+
+  oracle-compat:
+    runs-on: ubuntu-latest
+    needs: api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            legacy/sistema-licencas/package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Install legacy dependencies
+        working-directory: legacy/sistema-licencas
+        run: npm ci
+
+      - name: Run legacy compatibility oracle
+        run: npm run compat:legacy:local

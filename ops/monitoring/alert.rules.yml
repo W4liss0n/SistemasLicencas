@@ -1,0 +1,29 @@
+groups:
+  - name: licensing-api-alerts
+    rules:
+      - alert: PublicLicensingApi5xxHigh
+        expr: sum(rate(http_requests_total{route=~"/api/v2/license.*|/api/v2/licenses.*",status_code=~"5.."}[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "5xx elevado nas rotas publicas de licensing"
+          description: "A taxa de erro 5xx em /api/v2/license* ou /api/v2/licenses* passou do limite."
+
+      - alert: PublicLicensingApiP95High
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_ms_bucket{route=~"/api/v2/license.*|/api/v2/licenses.*"}[5m])) by (le, route)) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latencia p95 elevada nas rotas publicas de licensing"
+          description: "A latencia p95 excedeu 1000ms nas rotas publicas de licensing."
+
+      - alert: AdminBlockCancelSpike
+        expr: sum(rate(http_requests_total{route=~"/api/v2/internal/admin/licenses/.*/(block|cancel)",status_code=~"2.."}[10m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pico de operacoes block/cancel no backoffice"
+          description: "Volume de block/cancel acima do normal na trilha administrativa."

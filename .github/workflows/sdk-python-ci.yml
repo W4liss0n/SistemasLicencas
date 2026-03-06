@@ -1,0 +1,203 @@
+name: sdk-python-ci
+
+on:
+  push:
+    paths:
+      - 'sdk/python/**'
+      - 'apps/api/src/modules/end-user-auth/**'
+      - 'apps/api/src/modules/offline-entitlement/**'
+      - 'apps/api/src/config/**'
+      - 'apps/api/prisma/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/sdk-python-ci.yml'
+  pull_request:
+    paths:
+      - 'sdk/python/**'
+      - 'apps/api/src/modules/end-user-auth/**'
+      - 'apps/api/src/modules/offline-entitlement/**'
+      - 'apps/api/src/config/**'
+      - 'apps/api/prisma/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/sdk-python-ci.yml'
+
+jobs:
+  sdk-python-lint-unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: sdk/python/pyproject.toml
+
+      - name: Install SDK dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "sdk/python[dev]"
+
+      - name: Lint SDK (ruff)
+        run: python -m ruff check sdk/python/src sdk/python/tests
+
+      - name: Unit tests (SDK)
+        run: python -m pytest sdk/python/tests -m "not integration"
+
+  sdk-python-integration:
+    runs-on: ubuntu-latest
+    needs: sdk-python-lint-unit
+    defaults:
+      run:
+        working-directory: .
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: sistema_licencas_v2
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      PORT: 3001
+      API_PREFIX: /api/v2
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sistema_licencas_v2
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-secret-at-least-32-characters
+      ACCESS_JWT_SECRET: ci-access-secret-at-least-32-characters
+      REFRESH_JWT_SECRET: ci-refresh-secret-at-least-32-characters
+      OFFLINE_JWT_PRIVATE_KEY_PEM: |
+        -----BEGIN PRIVATE KEY-----
+        MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC/6RABRECAPgXN
+        4Uh+2rnvywFl/tkWDKPF8wWqJpuBk8bEFkgUk8XkKcqt78nC8TGwgIiNybfyyDzD
+        luWAv9LWaOQxmYSZUrs0OmnXJrZWhLfTsD8uuheqidlAoerr8VZknEZPU9hhpJMb
+        +PAaMQ0+SmN6xodJF34ZM0+QqitX2gMZgeliNJOnlOUoSD2oKlpaUtm3zrt5/pU3
+        RDmIaBo43ek6GIkVyyNyMSYA/4x7Gn+oja3hKOLIHPoYnrlRm7qqYeSSKzIZkaCT
+        QOK0xLPnTS1jHbHZ8t4qyUiP1YKGXCYBoC+Fd0kW6RHGFtMRVOPp+Z5l1u5EKoVq
+        4pPqtIftAgMBAAECggEAAMeLBw5KGPMEzFv5KK2ZlFW2KX/n5wvWo6aoT9jLaTaQ
+        klLyKIuUl9POMtaSrSUQpVvOsFniJoqBdp5sJyeeePbljrghQ5Zx/hB4jxhPUJGW
+        xdZ3hYPoS7NMsKsZhS7sqBAoM2hPwm+2EnODZ9tBsJXHekIrK0VjV4q34cUJ6cWV
+        f8ouF6T66MgROt5pMBWYSZhHgQSuF7DGOWYVEh5+SQCmRPF7kkwp29MDuKGm6tu1
+        RMq01ftFHmRB/Tmwx1+0wTLKckF6sLfsAFh1kjtbcoST8rLu22kBJH+Vl6C7mOyT
+        TC9lZiuhsBL/RyUIImrYPT06biJg0R4NJKKSOQ6HGwKBgQDjJTQJvo3guQvYTHfa
+        ravLQGyfcHtTyZQTIJsNxWw9leQVo1aK+7DEJ+exRJac2BzJLwKQC3iXjCcKqZYt
+        L0dFjp7qfZn3CmeQMEYBnMU86rDL/rLAihUlEfoTtqM+ZGit69syx+b1bRXSkF6c
+        cLvNfcvIJWm38/xTGMcj3WLL2wKBgQDYSgPEvflly93gv789o+nm49Oq1NN4XoIV
+        fk1TvbAIJvmXsYpHvCKoZM02CqbyzPB7zx7agt0qWjIMZe4fiJcwKVjXP4vF75gN
+        vSVpvL5AcGuuRVSor9tSq2EcTHhvTQyau1FKwW+nflsB6DjRQSUy+WEV6c611+zu
+        yuaqSuPp1wKBgFkXWX7M78cJrXysGYJ7BdvVrAUpUCX/9YU/D7HqEldheDGIfERN
+        DfsSD802ssBX/4plVuL6rNT8EsAa3h1g4tqEYw5kL0R3H0GtvXeabr5C6w9IGgJs
+        5nhAwc6Dnym0pl45GSOkxpDStXF+UK2Zhf/GbGxXSEzvdLN/D3Sgu8RrAoGBAJhB
+        6ks6jPGbRTNs6DyFQihWo2/z6HYo2Zw10EuuEdh7T2L5CWYcS62NYGS1tPbhTD1r
+        /cVHMFgbLHZL3wh1yDCQOsk0I7oQQ1MQnuDDjI6iVTtV9RXWzidxG6inMHTxoXjf
+        eoeMioQ3T+uUxUKRgJVUtoKNmAWs3k7vqNeiZrT7AoGBANJ9xXUH21BBVMPZN4MO
+        LhZXym8GeNXOZIf8kmRLjUlulvVNM4UeExDyfA1SwGQ2DcuCgUjoYLF8Q8Cwj6mV
+        WTlfJZNwYpoPNiNjgXO4iqffEa6thyqhSwoVLHoiUGg2SLd6WnyH3oHVyuSs7SvG
+        LKRI2jvNEpU9z5uo1s6r8H7v
+        -----END PRIVATE KEY-----
+      OFFLINE_JWT_PUBLIC_KEY_PEM: |
+        -----BEGIN PUBLIC KEY-----
+        MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv+kQAURAgD4FzeFIftq5
+        78sBZf7ZFgyjxfMFqiabgZPGxBZIFJPF5CnKre/JwvExsICIjcm38sg8w5blgL/S
+        1mjkMZmEmVK7NDpp1ya2VoS307A/LroXqonZQKHq6/FWZJxGT1PYYaSTG/jwGjEN
+        PkpjesaHSRd+GTNPkKorV9oDGYHpYjSTp5TlKEg9qCpaWlLZt867ef6VN0Q5iGga
+        ON3pOhiJFcsjcjEmAP+Mexp/qI2t4SjiyBz6GJ65UZu6qmHkkisyGZGgk0DitMSz
+        500tYx2x2fLeKslIj9WChlwmAaAvhXdJFukRxhbTEVTj6fmeZdbuRCqFauKT6rSH
+        7QIDAQAB
+        -----END PUBLIC KEY-----
+      OFFLINE_JWT_KID: ci-offline-key-v1
+      OFFLINE_MAX_HOURS: 72
+      CLOCK_SKEW_SECONDS: 120
+      REFRESH_TTL_DAYS: 7
+      ACCESS_TTL_MINUTES: 15
+      END_USER_AUTH_ENABLED: 'true'
+      AUTH_PASSWORD_PEPPER: change-me-auth-pepper-please
+      REQUEST_TIMEOUT_MS: 3000
+      IDEMPOTENCY_TTL_HOURS: 24
+      OTEL_ENABLED: 'false'
+      METRICS_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: sdk/python/pyproject.toml
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Install SDK dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "sdk/python[dev]"
+
+      - name: Prepare database
+        run: |
+          npm run api:prisma:migrate:deploy
+          npm run api:prisma:seed
+
+      - name: Start local API
+        run: |
+          npm run api:dev > /tmp/api.log 2>&1 &
+          echo $! > /tmp/api.pid
+
+      - name: Wait API health
+        run: |
+          for i in {1..45}; do
+            if curl -fsS http://127.0.0.1:3001/api/v2/health > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API did not become healthy in time"
+          cat /tmp/api.log || true
+          exit 1
+
+      - name: Integration tests (SDK x local API)
+        env:
+          SDK_INTEGRATION_BASE_URL: http://127.0.0.1:3001
+          SDK_INTEGRATION_PROGRAM_ID: demo-program
+          SDK_INTEGRATION_IDENTIFIER: user.demo@example.com
+          SDK_INTEGRATION_PASSWORD: user-demo-123
+          SDK_INTEGRATION_BLOCKED_IDENTIFIER: user.blocked@example.com
+          SDK_INTEGRATION_BLOCKED_PASSWORD: user-blocked-123
+        run: python -m pytest sdk/python/tests -m integration
+
+      - name: Print API logs
+        if: always()
+        run: cat /tmp/api.log || true
+
+      - name: Stop local API
+        if: always()
+        run: |
+          if [ -f /tmp/api.pid ]; then
+            kill "$(cat /tmp/api.pid)" || true
+          fi

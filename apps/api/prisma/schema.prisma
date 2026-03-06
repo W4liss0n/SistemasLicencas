@@ -1,0 +1,311 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubscriptionStatus {
+  pending
+  active
+  suspended
+  cancelled
+  expired
+
+  @@map("subscription_status")
+}
+
+enum LicenseStatus {
+  active
+  inactive
+  blocked
+  expired
+
+  @@map("license_status")
+}
+
+enum EventSeverity {
+  low
+  medium
+  high
+  critical
+
+  @@map("event_severity")
+}
+
+enum EndUserStatus {
+  active
+  blocked
+
+  @@map("end_user_status")
+}
+
+model Customer {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String         @unique
+  name          String
+  document      String?
+  endUsers      EndUser[]
+  subscriptions Subscription[]
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  @@map("customers")
+}
+
+model Plan {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String         @unique
+  name            String
+  description     String?
+  isInternal      Boolean        @default(false) @map("is_internal")
+  maxDevices      Int            @default(1) @map("max_devices")
+  maxOfflineHours Int            @default(168) @map("max_offline_hours")
+  features        Json           @default("[]")
+  subscriptions   Subscription[]
+  planPrograms    PlanProgram[]
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@map("plans")
+}
+
+model Program {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code              String           @unique
+  name              String
+  description       String?
+  status            String           @default("active")
+  metadata          Json             @default("{}")
+  planPrograms      PlanProgram[]
+  clientCredentials ClientCredential[]
+  endUserSessions   EndUserSession[]
+  authAuditEvents   AuthAuditEvent[]
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  @@map("programs")
+}
+
+model ClientCredential {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  programId         String    @map("program_id") @db.Uuid
+  identifier        String
+  passwordHash      String    @map("password_hash")
+  passwordSalt      String    @map("password_salt")
+  hashVersion       String    @default("scrypt_v1") @map("hash_version")
+  isActive          Boolean   @default(true) @map("is_active")
+  lastAuthenticatedAt DateTime? @map("last_authenticated_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([programId, identifier], map: "uq_client_credentials_program_identifier")
+  @@index([identifier], map: "idx_client_credentials_identifier")
+  @@map("client_credentials")
+}
+
+model EndUser {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId      String           @map("customer_id") @db.Uuid
+  identifier      String
+  passwordHash    String           @map("password_hash")
+  passwordSalt    String           @map("password_salt")
+  hashVersion     String           @default("scrypt_v1") @map("hash_version")
+  oidcIssuer      String?          @map("oidc_issuer")
+  oidcSubject     String?          @map("oidc_subject")
+  emailVerifiedAt DateTime?        @map("email_verified_at")
+  status          EndUserStatus    @default(active)
+  lastLoginAt     DateTime?        @map("last_login_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  customer        Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  sessions        EndUserSession[]
+  auditEvents     AuthAuditEvent[]
+
+  @@unique([customerId, identifier], map: "uq_end_users_customer_identifier")
+  @@unique([oidcIssuer, oidcSubject], map: "uq_end_users_oidc_identity")
+  @@index([identifier], map: "idx_end_users_identifier")
+  @@map("end_users")
+}
+
+model EndUserSession {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String    @map("user_id") @db.Uuid
+  programId           String    @map("program_id") @db.Uuid
+  deviceFingerprintHash String  @map("device_fingerprint_hash")
+  refreshTokenHash    String    @map("refresh_token_hash")
+  expiresAt           DateTime  @map("expires_at")
+  revokedAt           DateTime? @map("revoked_at")
+  revokeReason        String?   @map("revoke_reason")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  user                EndUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  program             Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([userId, programId, deviceFingerprintHash, revokedAt], map: "idx_end_user_sessions_lookup")
+  @@map("end_user_sessions")
+}
+
+model AuthAuditEvent {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  programId String   @map("program_id") @db.Uuid
+  eventType String   @map("event_type")
+  ip        Unsupported("inet")?
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      EndUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([eventType, createdAt(sort: Desc)], map: "idx_auth_audit_event_type_created")
+  @@index([userId, createdAt(sort: Desc)], map: "idx_auth_audit_user_created")
+  @@map("auth_audit_events")
+}
+
+model PlanProgram {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planId    String   @map("plan_id") @db.Uuid
+  programId String   @map("program_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  plan    Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, programId], map: "uq_plan_program")
+  @@index([programId], map: "idx_plan_program_program")
+  @@map("plan_programs")
+}
+
+model Subscription {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId  String             @map("customer_id") @db.Uuid
+  planId      String             @map("plan_id") @db.Uuid
+  status      SubscriptionStatus @default(active)
+  startAt     DateTime           @map("start_at")
+  endAt       DateTime           @map("end_at")
+  autoRenew   Boolean            @default(false) @map("auto_renew")
+  metadata    Json               @default("{}")
+  licenses    License[]
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  plan     Plan     @relation(fields: [planId], references: [id])
+
+  @@index([customerId, status, endAt], map: "idx_subscriptions_customer_status_end")
+  @@map("subscriptions")
+}
+
+model License {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subscriptionId  String        @map("subscription_id") @db.Uuid
+  licenseKey      String        @unique(map: "uq_license_key") @map("license_key")
+  status          LicenseStatus @default(active)
+  maxOfflineHours Int           @default(168) @map("max_offline_hours")
+  transferCount   Int           @default(0) @map("transfer_count")
+  lastTransferAt  DateTime?     @map("last_transfer_at")
+  devices         LicenseDevice[]
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([subscriptionId, status], map: "idx_licenses_subscription_status")
+  @@map("licenses")
+}
+
+model DeviceFingerprint {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fingerprintHash String         @unique(map: "uq_device_fingerprint_hash") @map("fingerprint_hash")
+  algorithm       String         @default("stable_v2")
+  rawComponents   Json           @default("{}") @map("raw_components")
+  devices         LicenseDevice[]
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@map("device_fingerprints")
+}
+
+model LicenseDevice {
+  id            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  licenseId     String               @map("license_id") @db.Uuid
+  fingerprintId String               @map("fingerprint_id") @db.Uuid
+  isActive      Boolean              @default(true) @map("is_active")
+  matchSource   String               @map("match_source")
+  lastSeenAt    DateTime?            @map("last_seen_at")
+  lastSeenIp    Unsupported("inet")? @map("last_seen_ip")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+
+  license     License           @relation(fields: [licenseId], references: [id])
+  fingerprint DeviceFingerprint @relation(fields: [fingerprintId], references: [id])
+
+  @@index([licenseId, isActive], map: "idx_license_devices_active")
+  @@map("license_devices")
+}
+
+model ValidationHistory {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  licenseKey String   @map("license_key")
+  success    Boolean
+  errorCode  String?  @map("error_code")
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([licenseKey, createdAt(sort: Desc)], map: "idx_validation_history_license_created")
+  @@map("validation_history")
+}
+
+model SecurityEvent {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventType String        @map("event_type")
+  severity  EventSeverity
+  details   Json          @default("{}")
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@index([eventType, severity, createdAt(sort: Desc)], map: "idx_security_events_event_severity_created")
+  @@map("security_events")
+}
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  action     String
+  payload    Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId, createdAt(sort: Desc)], map: "idx_audit_logs_entity_created")
+  @@map("audit_logs")
+}
+
+model OutboxEvent {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  aggregateType String    @map("aggregate_type")
+  aggregateId   String    @map("aggregate_id")
+  eventType     String    @map("event_type")
+  payload       Json
+  publishedAt   DateTime? @map("published_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([publishedAt], map: "idx_outbox_published_at")
+  @@map("outbox_events")
+}
+
+model IdempotencyKey {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKey String   @map("idempotency_key")
+  endpoint       String
+  requestHash    String   @map("request_hash")
+  responseBody   Json?    @map("response_body")
+  statusCode     Int?     @map("status_code")
+  expiresAt      DateTime @map("expires_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@unique([idempotencyKey, endpoint], map: "uq_idempotency_key_endpoint")
+  @@index([expiresAt], map: "idx_idempotency_expires_at")
+  @@map("idempotency_keys")
+}

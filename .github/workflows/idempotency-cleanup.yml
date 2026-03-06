@@ -1,0 +1,48 @@
+name: idempotency-cleanup
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode (no deletion)'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: idempotency-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.IDEMPOTENCY_CLEANUP_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Validate required secret
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::error::Missing secret IDEMPOTENCY_CLEANUP_DATABASE_URL."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run idempotency cleanup
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            npm run api:idempotency:cleanup:dry-run
+          else
+            npm run api:idempotency:cleanup
+          fi

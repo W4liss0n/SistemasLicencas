@@ -1,0 +1,103 @@
+name: admin-web-ci
+
+on:
+  push:
+    paths:
+      - 'apps/admin-web/**'
+      - 'scripts/gateway/**'
+      - 'ops/admin-gateway/**'
+      - 'docker-compose.prod.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/admin-web-ci.yml'
+  pull_request:
+    paths:
+      - 'apps/admin-web/**'
+      - 'scripts/gateway/**'
+      - 'ops/admin-gateway/**'
+      - 'docker-compose.prod.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/admin-web-ci.yml'
+
+jobs:
+  admin-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build admin-web
+        run: npm run admin-web:build
+
+      - name: Unit/integration tests (admin-web)
+        run: npm run admin-web:test
+
+      - name: Install Playwright browser
+        run: npm --workspace=admin-web exec playwright install --with-deps chromium
+
+      - name: End-to-end tests (admin-web)
+        run: npm run admin-web:e2e
+
+  gateway-smoke:
+    runs-on: ubuntu-latest
+    needs: admin-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare gateway auth and origin cert
+        run: |
+          mkdir -p ops/admin-gateway/certs
+          docker run --rm httpd:2.4-alpine htpasswd -nbB admin ci-admin-password > ops/admin-gateway/.htpasswd
+          openssl req -x509 -nodes -newkey rsa:2048 -sha256 -days 2 \
+            -subj "/CN=localhost" \
+            -keyout ops/admin-gateway/certs/origin.key \
+            -out ops/admin-gateway/certs/origin.crt
+
+      - name: Prepare CI env file
+        run: |
+          cp .env.prod.example .env.ci
+          cat >> .env.ci <<'EOF'
+          PUBLIC_DOMAIN=localhost
+          DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sistema_licencas_v2
+          REDIS_URL=redis://redis:6379
+          JWT_SECRET=ci-secret-at-least-32-characters
+          INTERNAL_ADMIN_API_KEYS=ci-internal-admin-key
+          ADMIN_INTERNAL_API_KEY=ci-internal-admin-key
+          ADMIN_WEB_ENABLE_MUTATIONS=false
+          CF_API_TOKEN=ci-unused-token
+          CF_ZONE_ID=ci-unused-zone
+          CF_RECORD_NAME=localhost
+          EOF
+
+      - name: Build and start gateway stack
+        run: docker compose --env-file .env.ci -f docker-compose.prod.yml up -d --build --wait --wait-timeout 240 postgres redis api admin-gateway
+
+      - name: Gateway smoke test
+        env:
+          GATEWAY_BASE_URL: https://localhost
+          GATEWAY_BASIC_AUTH_USER: admin
+          GATEWAY_BASIC_AUTH_PASSWORD: ci-admin-password
+          GATEWAY_INSECURE_TLS: "true"
+        run: npm run gateway:smoke
+
+      - name: Shutdown gateway stack
+        if: always()
+        run: docker compose --env-file .env.ci -f docker-compose.prod.yml down --volumes --remove-orphans

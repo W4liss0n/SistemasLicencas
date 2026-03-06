@@ -1,0 +1,51 @@
+name: license-engine-contract
+
+on:
+  schedule:
+    - cron: '15 4 * * *'
+  workflow_dispatch:
+
+jobs:
+  prisma-contract:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: sistema_licencas_v2
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d sistema_licencas_v2"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      PORT: 3001
+      API_PREFIX: /api/v2
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sistema_licencas_v2
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-secret-at-least-32-characters
+      AUTH_PASSWORD_PEPPER: ci-auth-pepper-at-least-16
+      REQUEST_TIMEOUT_MS: 3000
+      IDEMPOTENCY_TTL_HOURS: 24
+      LICENSE_ENGINE_STRATEGY: prisma
+      METRICS_ENABLED: false
+      METRICS_PATH: /metrics
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Prisma contract suite
+        run: npm run api:test:contract:prisma

@@ -1,0 +1,157 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sistema_licencas_v2
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_v2_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - v2_internal
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_v2_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - v2_internal
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - "3001"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3001}
+      API_PREFIX: ${API_PREFIX:-/api/v2}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      AUTH_PASSWORD_PEPPER: ${AUTH_PASSWORD_PEPPER}
+      REQUEST_TIMEOUT_MS: ${REQUEST_TIMEOUT_MS:-3000}
+      IDEMPOTENCY_TTL_HOURS: ${IDEMPOTENCY_TTL_HOURS:-24}
+      LICENSE_ENGINE_STRATEGY: ${LICENSE_ENGINE_STRATEGY:-prisma}
+      INTERNAL_ADMIN_API_KEYS: ${INTERNAL_ADMIN_API_KEYS}
+      OTEL_ENABLED: ${OTEL_ENABLED:-false}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-sistema-licencas-v2}
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+      METRICS_PATH: ${METRICS_PATH:-/metrics}
+    command: sh -c "npm run api:prisma:migrate:deploy && npm run api:start"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://localhost:3001/api/v2/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - v2_internal
+
+  admin-gateway:
+    build:
+      context: .
+      dockerfile: apps/admin-web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "443:443"
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+      BASIC_AUTH_REALM: ${BASIC_AUTH_REALM:-Admin Backoffice v2}
+      ADMIN_INTERNAL_API_KEY: ${ADMIN_INTERNAL_API_KEY}
+      ADMIN_WEB_ENABLE_MUTATIONS: ${ADMIN_WEB_ENABLE_MUTATIONS:-false}
+      TLS_CERT_PATH: /etc/nginx/certs/origin.crt
+      TLS_KEY_PATH: /etc/nginx/certs/origin.key
+    volumes:
+      - ./ops/admin-gateway/certs:/etc/nginx/certs:ro
+      - ./ops/admin-gateway/.htpasswd:/etc/nginx/auth/.htpasswd:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider --no-check-certificate https://127.0.0.1/nginx-health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - v2_internal
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    expose:
+      - "9090"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./ops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/monitoring/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - prometheus_v2_data:/prometheus
+    networks:
+      - v2_internal
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    restart: unless-stopped
+    expose:
+      - "9093"
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./ops/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_v2_data:/alertmanager
+    networks:
+      - v2_internal
+
+  ddns:
+    image: favonia/cloudflare-ddns:latest
+    restart: unless-stopped
+    environment:
+      CLOUDFLARE_API_TOKEN: ${CF_API_TOKEN}
+      CF_ZONE_ID: ${CF_ZONE_ID}
+      DOMAINS: ${CF_RECORD_NAME}
+      PROXIED: "true"
+      TZ: ${TZ:-UTC}
+    networks:
+      - v2_internal
+
+volumes:
+  postgres_v2_data:
+  redis_v2_data:
+  prometheus_v2_data:
+  alertmanager_v2_data:
+
+networks:
+  v2_internal:
+    driver: bridge

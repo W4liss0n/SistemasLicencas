@@ -1,0 +1,62 @@
+services:
+  oracle_legacy_postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: oracle_legacy
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d oracle_legacy"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - oracle_legacy_pg_data:/var/lib/postgresql/data
+
+  oracle_v2_postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: oracle_v2
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "55433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d oracle_v2"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - oracle_v2_pg_data:/var/lib/postgresql/data
+
+  oracle_legacy_redis:
+    image: redis:7-alpine
+    ports:
+      - "56379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - oracle_legacy_redis_data:/data
+
+  oracle_v2_redis:
+    image: redis:7-alpine
+    ports:
+      - "56380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - oracle_v2_redis_data:/data
+
+volumes:
+  oracle_legacy_pg_data:
+  oracle_v2_pg_data:
+  oracle_legacy_redis_data:
+  oracle_v2_redis_data:

@@ -1,0 +1,3 @@
+.htpasswd
+certs/*.crt
+certs/*.key
