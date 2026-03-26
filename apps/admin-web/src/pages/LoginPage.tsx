@@ -1,7 +1,7 @@
 import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { setOperatorName } from '../app/session';
+import { setOperatorContextName } from '../app/session';
 
 export function LoginPage() {
   const [operator, setOperator] = useState('');
@@ -47,7 +47,7 @@ export function LoginPage() {
                 setError('Informe um identificador de operador com pelo menos 2 caracteres.');
                 return;
               }
-              setOperatorName(operator);
+              setOperatorContextName(operator);
               navigate('/dashboard');
             }}
           >

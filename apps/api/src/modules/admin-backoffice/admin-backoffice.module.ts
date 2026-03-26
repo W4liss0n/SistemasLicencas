@@ -5,14 +5,20 @@ import { AdminCatalogController } from './controllers/admin-catalog.controller';
 import { AdminBackofficeController } from './controllers/admin-backoffice.controller';
 import { InternalApiKeyGuard } from './guards/internal-api-key.guard';
 import { ADMIN_BACKOFFICE_PORT } from './ports/admin-backoffice.port';
-import { AdminBackofficeService } from './services/admin-backoffice.service';
+import { AdminCatalogApplicationService } from './services/application/admin-catalog-application.service';
+import { AdminCustomersApplicationService } from './services/application/admin-customers-application.service';
+import { AdminLicensesApplicationService } from './services/application/admin-licenses-application.service';
+import { AdminOperationalSummaryApplicationService } from './services/application/admin-operational-summary-application.service';
 import { InMemoryAdminBackofficeService } from './services/in-memory-admin-backoffice.service';
 import { PrismaAdminBackofficeService } from './services/prisma-admin-backoffice.service';
 
 @Module({
   controllers: [AdminBackofficeController, AdminCatalogController],
   providers: [
-    AdminBackofficeService,
+    AdminCatalogApplicationService,
+    AdminCustomersApplicationService,
+    AdminLicensesApplicationService,
+    AdminOperationalSummaryApplicationService,
     InternalApiKeyGuard,
     IdempotencyService,
     InMemoryAdminBackofficeService,

@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Inject,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards
@@ -25,10 +26,19 @@ import {
   CreateCustomerRequestDto,
   CreatePlanRequestDto,
   CreateProgramRequestDto,
-  OnboardCustomerRequestDto
+  OnboardCustomerRequestDto,
+  UpdatePlanRequestDto
 } from '../dto/admin-backoffice.dto';
 import { InternalApiKeyGuard } from '../guards/internal-api-key.guard';
-import { AdminBackofficeService } from '../services/admin-backoffice.service';
+import { AdminCatalogApplicationService } from '../services/application/admin-catalog-application.service';
+import { AdminCustomersApplicationService } from '../services/application/admin-customers-application.service';
+import {
+  toCreateCustomerCommand,
+  toCreatePlanCommand,
+  toCreateProgramCommand,
+  toOnboardCustomerCommand,
+  toUpdatePlanCommand
+} from './admin-backoffice-command.mapper';
 import { requireInternalIdempotencyKey } from '../utils/required-headers';
 
 @ApiExcludeController()
@@ -37,8 +47,10 @@ import { requireInternalIdempotencyKey } from '../utils/required-headers';
 @Controller('internal/admin')
 export class AdminCatalogController {
   constructor(
-    @Inject(AdminBackofficeService)
-    private readonly adminBackofficeService: AdminBackofficeService
+    @Inject(AdminCatalogApplicationService)
+    private readonly catalogService: AdminCatalogApplicationService,
+    @Inject(AdminCustomersApplicationService)
+    private readonly customersService: AdminCustomersApplicationService
   ) {}
 
   @Post('programs')
@@ -49,7 +61,7 @@ export class AdminCatalogController {
     @Body() payload: CreateProgramRequestDto
   ): Promise<AdminProgramResponseDto> {
     const idempotencyKey = requireInternalIdempotencyKey(idempotencyKeyHeader);
-    return this.adminBackofficeService.createProgram(payload, idempotencyKey);
+    return this.catalogService.createProgram(toCreateProgramCommand(payload), idempotencyKey);
   }
 
   @Get('programs')
@@ -59,7 +71,7 @@ export class AdminCatalogController {
     @Query('page_size') pageSizeQuery: string | undefined,
     @Query('q') query: string | undefined
   ): Promise<AdminProgramsListResponseDto> {
-    return this.adminBackofficeService.listPrograms({
+    return this.catalogService.listPrograms({
       page: parsePaginationParam(pageQuery, 1, 'page'),
       pageSize: parsePaginationParam(pageSizeQuery, 20, 'page_size', 100),
       query
@@ -74,7 +86,7 @@ export class AdminCatalogController {
     @Body() payload: CreatePlanRequestDto
   ): Promise<AdminPlanResponseDto> {
     const idempotencyKey = requireInternalIdempotencyKey(idempotencyKeyHeader);
-    return this.adminBackofficeService.createPlan(payload, idempotencyKey);
+    return this.catalogService.createPlan(toCreatePlanCommand(payload), idempotencyKey);
   }
 
   @Get('plans')
@@ -84,11 +96,23 @@ export class AdminCatalogController {
     @Query('page_size') pageSizeQuery: string | undefined,
     @Query('q') query: string | undefined
   ): Promise<AdminPlansListResponseDto> {
-    return this.adminBackofficeService.listPlans({
+    return this.catalogService.listPlans({
       page: parsePaginationParam(pageQuery, 1, 'page'),
       pageSize: parsePaginationParam(pageSizeQuery, 20, 'page_size', 100),
       query
     });
+  }
+
+  @Patch('plans/:planId')
+  @HttpCode(200)
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  async updatePlan(
+    @Param('planId') planId: string,
+    @Headers('idempotency-key') idempotencyKeyHeader: string | undefined,
+    @Body() payload: UpdatePlanRequestDto
+  ): Promise<AdminPlanResponseDto> {
+    const idempotencyKey = requireInternalIdempotencyKey(idempotencyKeyHeader);
+    return this.catalogService.updatePlan(toUpdatePlanCommand(planId, payload), idempotencyKey);
   }
 
   @Get('customers')
@@ -98,7 +122,7 @@ export class AdminCatalogController {
     @Query('page_size') pageSizeQuery: string | undefined,
     @Query('q') query: string | undefined
   ): Promise<AdminCustomersListResponseDto> {
-    return this.adminBackofficeService.listCustomers({
+    return this.customersService.listCustomers({
       page: parsePaginationParam(pageQuery, 1, 'page'),
       pageSize: parsePaginationParam(pageSizeQuery, 20, 'page_size', 100),
       query
@@ -110,7 +134,7 @@ export class AdminCatalogController {
   async getCustomerDetails(
     @Param('customerId') customerId: string
   ): Promise<AdminCustomerDetailsResponseDto> {
-    return this.adminBackofficeService.getCustomerDetails(customerId);
+    return this.customersService.getCustomerDetails(customerId);
   }
 
   @Post('customers')
@@ -121,7 +145,7 @@ export class AdminCatalogController {
     @Body() payload: CreateCustomerRequestDto
   ): Promise<AdminCreateCustomerResponseDto> {
     const idempotencyKey = requireInternalIdempotencyKey(idempotencyKeyHeader);
-    return this.adminBackofficeService.createCustomer(payload, idempotencyKey);
+    return this.customersService.createCustomer(toCreateCustomerCommand(payload), idempotencyKey);
   }
 
   @Post('customers/onboard')
@@ -132,7 +156,7 @@ export class AdminCatalogController {
     @Body() payload: OnboardCustomerRequestDto
   ): Promise<AdminOnboardCustomerResponseDto> {
     const idempotencyKey = requireInternalIdempotencyKey(idempotencyKeyHeader);
-    return this.adminBackofficeService.onboardCustomer(payload, idempotencyKey);
+    return this.customersService.onboardCustomer(toOnboardCustomerCommand(payload), idempotencyKey);
   }
 }
 

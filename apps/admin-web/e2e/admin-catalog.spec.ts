@@ -27,6 +27,8 @@ type PlanItem = {
 test('catalog flows send idempotency keys for programs, plans and onboarding', async ({ page }) => {
   const mutationPaths: string[] = [];
   const idempotencyKeys: string[] = [];
+  let capturedOnboardingPayload: Record<string, unknown> | null = null;
+  let capturedPlanUpdatePayload: Record<string, unknown> | null = null;
 
   const programs: ProgramItem[] = [
     {
@@ -173,6 +175,48 @@ test('catalog flows send idempotency keys for programs, plans and onboarding', a
     });
   });
 
+  await page.route('**/admin-api/plans/*', async (route) => {
+    const idempotencyKey = route.request().headers()['idempotency-key'];
+    expect(idempotencyKey).toBeTruthy();
+    idempotencyKeys.push(idempotencyKey ?? '');
+    mutationPaths.push('plan-update');
+
+    const payload = route.request().postDataJSON() as {
+      name: string;
+      description?: string;
+      max_devices: number;
+      max_offline_hours: number;
+      features: string[];
+      program_ids: string[];
+    };
+    capturedPlanUpdatePayload = payload;
+
+    const planIndex = plans.findIndex((plan) => plan.id === createdPlanId);
+    const linkedPrograms = programs.filter((program) => payload.program_ids.includes(program.id));
+    const updated: PlanItem = {
+      id: createdPlanId,
+      code: 'fleet-pro-bb22',
+      name: payload.name,
+      description: payload.description ?? null,
+      max_devices: payload.max_devices,
+      max_offline_hours: payload.max_offline_hours,
+      features: payload.features,
+      created_at: '2026-03-05T10:00:00.000Z',
+      updated_at: '2026-03-05T12:30:00.000Z',
+      programs: linkedPrograms
+    };
+    plans[planIndex] = updated;
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        plan: updated
+      })
+    });
+  });
+
   await page.route('**/admin-api/customers**', async (route) => {
     if (route.request().method() === 'GET') {
       await route.fulfill({
@@ -195,10 +239,11 @@ test('catalog flows send idempotency keys for programs, plans and onboarding', a
     mutationPaths.push('onboard');
     const payload = route.request().postDataJSON() as {
       customer: { email: string; name: string };
-      program_id: string;
+      program_id?: string;
       plan_id: string;
       subscription_end_at: string;
     };
+    capturedOnboardingPayload = payload;
 
     await route.fulfill({
       status: 200,
@@ -237,7 +282,7 @@ test('catalog flows send idempotency keys for programs, plans and onboarding', a
           features: ['validate', 'activate']
         },
         program: {
-          id: payload.program_id,
+          id: payload.program_id ?? createdProgramId,
           code: 'desktop-fleet-aa11',
           name: 'Desktop Fleet',
           status: 'active'
@@ -272,22 +317,32 @@ test('catalog flows send idempotency keys for programs, plans and onboarding', a
   await page.getByRole('button', { name: 'Criar plano' }).click();
   await expect(page.getByText(/Plano criado com code/i)).toBeVisible();
 
+  await page.getByRole('button', { name: 'Editar' }).click();
+  await page.getByLabel('Nome do plano').fill('Fleet Pro Updated');
+  await page.getByLabel('Max offline hours').fill('144');
+  await page.getByRole('button', { name: 'Salvar plano' }).click();
+  await expect(page.getByText(/Plano atualizado com code/i)).toBeVisible();
+
   await page.getByRole('link', { name: 'Clientes' }).click();
   await page.getByRole('button', { name: 'Novo onboarding' }).click();
   await page.getByLabel('Email do cliente').fill('fleet@example.com');
   await page.getByLabel('Nome do cliente').fill('Fleet Operator');
   await page.getByRole('button', { name: /^Proximo$/ }).click();
 
-  await page.getByRole('combobox', { name: 'Programa' }).click();
-  await page.getByRole('option', { name: /^Desktop Fleet/ }).click();
   await page.getByRole('combobox', { name: 'Plano' }).click();
   await page.getByRole('option', { name: /^Fleet Pro/ }).click();
-  await page.getByLabel(/Fim da assinatura|Subscription end at/i).fill('2027-03-31T23:59:59.000Z');
   await page.getByRole('button', { name: /^Proximo$/ }).click();
   await page.getByRole('button', { name: 'Confirmar onboarding' }).click();
   await expect(page.getByText(/LIC-FLEET-123ABC/i)).toBeVisible();
 
-  expect(mutationPaths).toEqual(['program', 'plan', 'onboard']);
-  expect(idempotencyKeys).toHaveLength(3);
+  expect(capturedPlanUpdatePayload).toMatchObject({
+    name: 'Fleet Pro Updated',
+    max_offline_hours: 144,
+    program_ids: [createdProgramId]
+  });
+  expect(capturedOnboardingPayload?.plan_id).toBe(createdPlanId);
+  expect(capturedOnboardingPayload?.program_id).toBeUndefined();
+  expect(mutationPaths).toEqual(['program', 'plan', 'plan-update', 'onboard']);
+  expect(idempotencyKeys).toHaveLength(4);
   expect(idempotencyKeys.every((key) => key.trim().length > 0)).toBe(true);
 });

@@ -219,7 +219,7 @@ export function CustomerRecordAccordion({ customer, onOpenOnboarding }: Props) {
           detailsQuery.data.licenses.length > 0 ? (
             <Stack spacing={1.25}>
               {detailsQuery.data.licenses.map((entry) => (
-                <CustomerLicenseCard key={entry.license.id} entry={entry} />
+                <CustomerLicenseCard key={entry.license.id} customerId={customer.id} entry={entry} />
               ))}
             </Stack>
           ) : (

@@ -1,18 +1,34 @@
-import { Box, Chip, Divider, Stack, Typography } from '@mui/material';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { Box, Button, Chip, Divider, Stack, Typography } from '@mui/material';
 import { SectionCard } from '../../design/components/SectionCard';
 import { useI18n } from '../../i18n';
 import type { AdminPlan } from '../../types/api';
 
 type Props = {
   plan: AdminPlan;
+  onEdit?: (plan: AdminPlan) => void;
+  editDisabled?: boolean;
 };
 
-export function PlanSummaryCard({ plan }: Props) {
+export function PlanSummaryCard({ plan, onEdit, editDisabled = false }: Props) {
   const { t } = useI18n();
 
   return (
     <SectionCard
       elevated
+      actions={
+        onEdit ? (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<EditOutlinedIcon />}
+            onClick={() => onEdit(plan)}
+            disabled={editDisabled}
+          >
+            {t('common.edit')}
+          </Button>
+        ) : null
+      }
       sx={{
         height: '100%',
         backgroundColor: 'var(--controlroom-surface-elevated)'

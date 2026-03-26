@@ -119,6 +119,43 @@ const handlers = [
       }
     });
   }),
+  http.patch('/admin-api/plans/:planId', async ({ request, params }) => {
+    const payload = (await request.json()) as {
+      name?: string;
+      description?: string | null;
+      max_devices?: number;
+      max_offline_hours?: number;
+      features?: string[];
+      program_ids?: string[];
+    };
+
+    return HttpResponse.json({
+      success: true,
+      plan: {
+        id: params.planId,
+        code: 'basic',
+        name: payload.name ?? 'Updated Plan',
+        description: payload.description ?? null,
+        max_devices: payload.max_devices ?? 1,
+        max_offline_hours: payload.max_offline_hours ?? 72,
+        features: payload.features ?? ['validate'],
+        created_at: '2026-03-05T10:00:00.000Z',
+        updated_at: '2026-03-05T12:00:00.000Z',
+        programs: [
+          {
+            id: '11111111-1111-4111-8111-111111111111',
+            code: 'demo-program',
+            name: 'Demo Program',
+            description: 'Seed program',
+            status: 'active',
+            metadata: {},
+            created_at: '2026-03-05T10:00:00.000Z',
+            updated_at: '2026-03-05T10:00:00.000Z'
+          }
+        ]
+      }
+    });
+  }),
   http.get('/admin-api/customers', () =>
     HttpResponse.json({
       success: true,
@@ -216,6 +253,48 @@ const handlers = [
       ]
     })
   ),
+  http.patch('/admin-api/licenses/:licenseKey', async ({ request, params }) => {
+    const payload = (await request.json()) as {
+      subscription_end_at?: string;
+      auto_renew?: boolean;
+      max_offline_hours?: number;
+    };
+
+    return HttpResponse.json({
+      success: true,
+      license: {
+        id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        license_key: params.licenseKey,
+        status: 'active',
+        max_offline_hours: payload.max_offline_hours ?? 72,
+        transfer_count: 0,
+        created_at: '2026-03-05T10:00:00.000Z',
+        updated_at: '2026-03-05T12:00:00.000Z'
+      },
+      subscription: {
+        id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+        status: 'active',
+        start_at: '2026-03-05T10:00:00.000Z',
+        end_at: payload.subscription_end_at ?? '2027-03-05T10:00:00.000Z',
+        auto_renew: payload.auto_renew ?? false
+      },
+      plan: {
+        id: '22222222-2222-4222-8222-222222222222',
+        code: 'basic',
+        name: 'Basic',
+        max_devices: 1,
+        max_offline_hours: 72,
+        features: ['validate']
+      },
+      customer: {
+        id: '99999999-9999-4999-8999-999999999999',
+        email: 'customer@example.com',
+        name: 'Customer',
+        document: null
+      },
+      devices: []
+    });
+  }),
   http.post('/admin-api/customers/onboard', () =>
     HttpResponse.json({
       success: true,

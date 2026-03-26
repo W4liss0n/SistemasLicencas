@@ -25,7 +25,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { queryClient } from '../../app/query-client';
 import { isMutationsEnabled } from '../../app/runtime-config';
-import { getOperatorName } from '../../app/session';
+import { getOperatorContextName } from '../../app/session';
 import { SectionCard } from '../../design/components/SectionCard';
 import { useI18n } from '../../i18n';
 import { ApiError } from '../../lib/http/api-error';
@@ -41,7 +41,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 export function ProgramsPanel() {
-  const operator = getOperatorName() || 'operator';
+  const operator = getOperatorContextName() || 'operator';
   const mutationsEnabled = isMutationsEnabled();
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');

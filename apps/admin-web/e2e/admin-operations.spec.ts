@@ -124,6 +124,64 @@ test('critical admin flows execute mutations with idempotency key', async ({ pag
     });
   });
 
+  await page.route('**/admin-api/programs**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        items: [
+          {
+            id: 'program-id-1',
+            code: 'demo-program',
+            name: 'Demo Program',
+            description: 'Seed program',
+            status: 'active',
+            metadata: {},
+            created_at: '2026-03-05T10:00:00.000Z',
+            updated_at: '2026-03-05T10:00:00.000Z'
+          }
+        ],
+        page: 1,
+        page_size: 100,
+        total: 1
+      })
+    });
+  });
+
+  await page.route('**/admin-api/plans**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        items: [
+          {
+            ...currentLicense.plan,
+            description: null,
+            created_at: '2026-03-05T10:00:00.000Z',
+            updated_at: '2026-03-05T10:00:00.000Z',
+            programs: [
+              {
+                id: 'program-id-1',
+                code: 'demo-program',
+                name: 'Demo Program',
+                description: 'Seed program',
+                status: 'active',
+                metadata: {},
+                created_at: '2026-03-05T10:00:00.000Z',
+                updated_at: '2026-03-05T10:00:00.000Z'
+              }
+            ]
+          }
+        ],
+        page: 1,
+        page_size: 100,
+        total: 1
+      })
+    });
+  });
+
   await page.route('**/admin-api/licenses', async (route) => {
     if (route.request().method() !== 'POST') {
       await route.continue();
@@ -176,11 +234,7 @@ test('critical admin flows execute mutations with idempotency key', async ({ pag
 
     mutationPaths.push('block');
     idempotencyKeys.push(idempotencyKey ?? '');
-    currentLicense = buildLicenseResponse({
-      licenseKey: currentLicense.license.license_key,
-      status: 'blocked',
-      subscriptionEndAt: currentLicense.subscription.end_at
-    });
+    currentLicense.license.status = 'blocked';
 
     await route.fulfill({
       status: 200,
@@ -195,11 +249,7 @@ test('critical admin flows execute mutations with idempotency key', async ({ pag
 
     mutationPaths.push('unblock');
     idempotencyKeys.push(idempotencyKey ?? '');
-    currentLicense = buildLicenseResponse({
-      licenseKey: currentLicense.license.license_key,
-      status: 'active',
-      subscriptionEndAt: currentLicense.subscription.end_at
-    });
+    currentLicense.license.status = 'active';
 
     await route.fulfill({
       status: 200,
@@ -214,11 +264,8 @@ test('critical admin flows execute mutations with idempotency key', async ({ pag
 
     mutationPaths.push('cancel');
     idempotencyKeys.push(idempotencyKey ?? '');
-    currentLicense = buildLicenseResponse({
-      licenseKey: currentLicense.license.license_key,
-      status: 'inactive',
-      subscriptionEndAt: currentLicense.subscription.end_at
-    });
+    currentLicense.license.status = 'inactive';
+    currentLicense.subscription.status = 'cancelled';
 
     await route.fulfill({
       status: 200,
@@ -228,6 +275,31 @@ test('critical admin flows execute mutations with idempotency key', async ({ pag
   });
 
   await page.route('**/admin-api/licenses/*', async (route) => {
+    if (route.request().method() === 'PATCH') {
+      const idempotencyKey = route.request().headers()['idempotency-key'];
+      expect(idempotencyKey).toBeTruthy();
+
+      const payload = route.request().postDataJSON() as {
+        subscription_end_at: string;
+        auto_renew: boolean;
+        max_offline_hours: number;
+      };
+
+      mutationPaths.push('update');
+      idempotencyKeys.push(idempotencyKey ?? '');
+      currentLicense.subscription.end_at = payload.subscription_end_at;
+      currentLicense.subscription.auto_renew = payload.auto_renew;
+      currentLicense.license.max_offline_hours = payload.max_offline_hours;
+      currentLicense.license.updated_at = '2026-03-05T11:00:00.000Z';
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(currentLicense)
+      });
+      return;
+    }
+
     if (route.request().method() !== 'GET') {
       await route.continue();
       return;
@@ -237,6 +309,58 @@ test('critical admin flows execute mutations with idempotency key', async ({ pag
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(currentLicense)
+    });
+  });
+
+  await page.route('**/admin-api/customers**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        items: [
+          {
+            id: currentLicense.customer.id,
+            email: currentLicense.customer.email,
+            name: currentLicense.customer.name,
+            document: currentLicense.customer.document,
+            created_at: '2026-03-05T10:00:00.000Z',
+            updated_at: '2026-03-05T10:00:00.000Z',
+            licenses_count: 1,
+            last_subscription_status: currentLicense.subscription.status
+          }
+        ],
+        page: 1,
+        page_size: 20,
+        total: 1
+      })
+    });
+  });
+
+  await page.route('**/admin-api/customers/*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        customer: {
+          id: currentLicense.customer.id,
+          email: currentLicense.customer.email,
+          name: currentLicense.customer.name,
+          document: currentLicense.customer.document,
+          created_at: '2026-03-05T10:00:00.000Z',
+          updated_at: '2026-03-05T10:00:00.000Z'
+        },
+        licenses: [
+          {
+            license: currentLicense.license,
+            subscription: currentLicense.subscription,
+            plan: currentLicense.plan,
+            programs: [],
+            devices: currentLicense.devices
+          }
+        ]
+      })
     });
   });
 
@@ -252,6 +376,16 @@ test('critical admin flows execute mutations with idempotency key', async ({ pag
   await page.getByRole('textbox', { name: /Fim da assinatura|Subscription end at/i }).fill('2027-04-01T23:59:59.000Z');
   await page.getByRole('button', { name: 'Provisionar licenca' }).click();
   await expect(page.getByText(/Licenca criada com sucesso/i)).toBeVisible();
+
+  await page.getByRole('link', { name: 'Clientes' }).click();
+  await page.getByText('Operator E2E').click();
+  await page.getByRole('tab', { name: 'Licencas' }).click();
+  await page.getByRole('button', { name: 'Editar' }).click();
+  await page.getByLabel('Fim da assinatura').fill('2027-06-01T12:30');
+  await page.getByLabel('Maximo de horas offline').fill('96');
+  await page.getByRole('switch', { name: 'Renovacao automatica' }).click();
+  await page.getByRole('button', { name: 'Salvar licenca' }).click();
+  await expect(page.getByText(/96 horas offline/i)).toBeVisible();
 
   await page.getByRole('link', { name: /^Buscar Licenca/ }).first().click();
   await page.getByRole('textbox', { name: /Chave da licenca|License Key/i }).fill(currentLicense.license.license_key);
@@ -275,7 +409,7 @@ test('critical admin flows execute mutations with idempotency key', async ({ pag
   await page.getByRole('textbox', { name: 'Motivo' }).fill('manual-cancel');
   await page.getByRole('button', { name: 'Confirmar' }).click();
 
-  expect(mutationPaths).toEqual(['provision', 'renew', 'block', 'unblock', 'cancel']);
-  expect(idempotencyKeys).toHaveLength(5);
+  expect(mutationPaths).toEqual(['provision', 'update', 'renew', 'block', 'unblock', 'cancel']);
+  expect(idempotencyKeys).toHaveLength(6);
   expect(idempotencyKeys.every((key) => key.trim().length > 0)).toBe(true);
 });

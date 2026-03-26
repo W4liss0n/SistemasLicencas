@@ -90,6 +90,13 @@ export type RenewLicensePayload = {
   reason?: string;
 };
 
+export type UpdateLicensePayload = {
+  subscription_end_at: string;
+  auto_renew: boolean;
+  max_offline_hours: number;
+  requested_by?: string;
+};
+
 export type LicenseActionPayload = {
   requested_by?: string;
   reason?: string;
@@ -140,6 +147,16 @@ export type AdminPlan = {
 };
 
 export type CreatePlanPayload = {
+  name: string;
+  description?: string;
+  max_devices: number;
+  max_offline_hours: number;
+  features: string[];
+  program_ids: string[];
+  requested_by?: string;
+};
+
+export type UpdatePlanPayload = {
   name: string;
   description?: string;
   max_devices: number;

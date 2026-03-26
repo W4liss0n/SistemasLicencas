@@ -17,7 +17,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { queryClient } from '../../app/query-client';
 import { isMutationsEnabled } from '../../app/runtime-config';
-import { getOperatorName } from '../../app/session';
+import { getOperatorContextName } from '../../app/session';
 import { createIdempotencyKey } from '../../lib/idempotency/create-idempotency-key';
 import { ApiError } from '../../lib/http/api-error';
 import { appendOperationTrail } from '../../lib/trail/operation-trail';
@@ -39,7 +39,7 @@ type Props = {
 };
 
 export function LicenseActionsPanel({ licenseKey }: Props) {
-  const operator = getOperatorName() || 'operator';
+  const operator = getOperatorContextName() || 'operator';
   const mutationsEnabled = isMutationsEnabled();
   const [dialog, setDialog] = useState<OperationAction | null>(null);
 

@@ -122,15 +122,19 @@ Response:
 ## Quickstart local (mock OIDC)
 No `sistema-licencas-v2`:
 1. Preparar stack de auth para teste local:
-   - `powershell -ExecutionPolicy Bypass -File scripts/dev/prepare-browser-auth.ps1`
+   - `npm run dev:auth`
 2. Rodar smoke de login browser com SDK:
    - `cd sdk/python`
    - `set PYTHONPATH=src` (Windows cmd) ou `$env:PYTHONPATH='src'` (PowerShell)
    - `python examples/browser_login_smoke.py`
 3. Smoke headless (sem abrir browser) para validacao automatizada:
    - `python examples/browser_login_headless_smoke.py`
-4. Encerrar API/mock quando terminar:
-   - `powershell -ExecutionPolicy Bypass -File scripts/dev/stop-browser-auth.ps1`
+4. Encerrar quando terminar:
+   - `Ctrl+C` no terminal onde `npm run dev:auth` estiver rodando
+
+Atalho alternativo em background:
+- `powershell -ExecutionPolicy Bypass -File scripts/dev/prepare-browser-auth.ps1`
+- Para encerrar esse modo, use `powershell -ExecutionPolicy Bypass -File scripts/dev/stop-browser-auth.ps1`
 
 ## Integracao direta com Auth0
 Use este modo quando quiser trocar o provider mock por tenant real.
@@ -148,7 +152,7 @@ Use este modo quando quiser trocar o provider mock por tenant real.
    - `OIDC_CLIENT_ID=<CLIENT_ID_DO_AUTH0>`
    - `OIDC_SCOPES=openid profile email`
 3. Suba backend sem o mock OIDC:
-   - `powershell -ExecutionPolicy Bypass -File scripts/dev/prepare-browser-auth.ps1 -SkipMockOidc`
+   - `npm run dev -- --api-only --with-infra --migrate --seed`
 4. Rode o smoke browser (porta fixa 53123):
    - `cd sdk/python`
    - `$env:PYTHONPATH='src'`

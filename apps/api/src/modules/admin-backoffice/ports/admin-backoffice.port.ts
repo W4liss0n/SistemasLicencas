@@ -45,6 +45,17 @@ export interface CreatePlanInput {
   requestedBy?: string;
 }
 
+export interface UpdatePlanInput {
+  planId: string;
+  name: string;
+  description?: string;
+  maxDevices: number;
+  maxOfflineHours: number;
+  features: string[];
+  programIds: string[];
+  requestedBy?: string;
+}
+
 export interface ListPlansInput extends PaginationInput {}
 
 export interface AdminPlanSummary {
@@ -241,6 +252,14 @@ export interface RenewLicenseInput {
   reason?: string;
 }
 
+export interface UpdateLicenseInput {
+  licenseKey: string;
+  subscriptionEndAt: string;
+  autoRenew: boolean;
+  maxOfflineHours: number;
+  requestedBy?: string;
+}
+
 export interface LicenseActionInput {
   licenseKey: string;
   requestedBy?: string;
@@ -316,6 +335,7 @@ export interface AdminBackofficePort {
   createProgram(input: CreateProgramInput): Promise<AdminProgramSummary>;
   listPrograms(input: ListProgramsInput): Promise<PaginatedResult<AdminProgramSummary>>;
   createPlan(input: CreatePlanInput): Promise<AdminPlanSummary>;
+  updatePlan(input: UpdatePlanInput): Promise<AdminPlanSummary>;
   listPlans(input: ListPlansInput): Promise<PaginatedResult<AdminPlanSummary>>;
   listCustomers(input: ListCustomersInput): Promise<PaginatedResult<AdminCustomerSummary>>;
   getCustomerDetails(input: GetCustomerDetailsInput): Promise<AdminCustomerDetails>;
@@ -323,6 +343,7 @@ export interface AdminBackofficePort {
   onboardCustomer(input: OnboardCustomerInput): Promise<AdminOnboardCustomerResult>;
   provisionLicense(input: ProvisionLicenseInput): Promise<AdminLicenseDetails>;
   renewLicense(input: RenewLicenseInput): Promise<AdminLicenseDetails>;
+  updateLicense(input: UpdateLicenseInput): Promise<AdminLicenseDetails>;
   blockLicense(input: LicenseActionInput): Promise<AdminLicenseDetails>;
   unblockLicense(input: LicenseActionInput): Promise<AdminLicenseDetails>;
   cancelLicense(input: LicenseActionInput): Promise<AdminLicenseDetails>;

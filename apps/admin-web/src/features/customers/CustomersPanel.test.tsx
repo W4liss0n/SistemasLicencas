@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
@@ -74,6 +74,74 @@ describe('CustomersPanel', () => {
 
     expect(await screen.findByText(/LIC-DEMO-ABC123/i)).toBeInTheDocument();
     expect((await screen.findAllByText(/Basic \(basic\)/i)).length).toBeGreaterThan(0);
+  });
+
+  it('edits customer license contract fields from the license card', async () => {
+    vi.stubEnv('VITE_ADMIN_WEB_ENABLE_MUTATIONS', 'true');
+    const user = userEvent.setup();
+    let capturedPayload: Record<string, unknown> | null = null;
+
+    server.use(
+      http.patch('/admin-api/licenses/:licenseKey', async ({ request, params }) => {
+        capturedPayload = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({
+          success: true,
+          license: {
+            id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+            license_key: params.licenseKey,
+            status: 'active',
+            max_offline_hours: 96,
+            transfer_count: 0,
+            created_at: '2026-03-05T10:00:00.000Z',
+            updated_at: '2026-03-05T12:00:00.000Z'
+          },
+          subscription: {
+            id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+            status: 'active',
+            start_at: '2026-03-05T10:00:00.000Z',
+            end_at: '2027-04-05T10:00:00.000Z',
+            auto_renew: true
+          },
+          plan: {
+            id: '22222222-2222-4222-8222-222222222222',
+            code: 'basic',
+            name: 'Basic',
+            max_devices: 1,
+            max_offline_hours: 72,
+            features: ['validate']
+          },
+          customer: {
+            id: '99999999-9999-4999-8999-999999999999',
+            email: 'customer@example.com',
+            name: 'Customer',
+            document: null
+          },
+          devices: []
+        });
+      })
+    );
+
+    renderWithProviders(<CustomersPanel />);
+
+    await user.click(await screen.findByText('Customer'));
+    await user.click(screen.getByRole('tab', { name: 'Licencas' }));
+    await user.click(await screen.findByRole('button', { name: /Editar/i }));
+
+    const maxOfflineInput = screen.getByLabelText(/Maximo de horas offline/i);
+    await user.clear(maxOfflineInput);
+    await user.type(maxOfflineInput, '96');
+    await user.click(screen.getByRole('switch', { name: /Renovacao automatica/i }));
+    await user.click(screen.getByRole('button', { name: /Salvar licenca/i }));
+
+    await waitFor(() => {
+      expect(capturedPayload).not.toBeNull();
+    });
+
+    expect(capturedPayload).toMatchObject({
+      auto_renew: true,
+      max_offline_hours: 96
+    });
+    expect(typeof capturedPayload?.subscription_end_at).toBe('string');
   });
 
   it('creates customer only when Sem Plano is selected', async () => {
@@ -248,20 +316,21 @@ describe('CustomersPanel', () => {
     renderWithProviders(<CustomersPanel />);
 
     await user.click(screen.getByRole('button', { name: /Novo onboarding/i }));
-    await user.type(screen.getByLabelText(/Email do cliente/i), 'wizard@example.com');
-    await user.type(screen.getByLabelText(/Nome do cliente/i), 'Wizard User');
-    await user.click(screen.getByRole('button', { name: /^Proximo$/i }));
+    const dialog = screen.getByRole('dialog', { name: /Onboarding de cliente/i });
+    await user.type(within(dialog).getByLabelText(/Email do cliente/i), 'wizard@example.com');
+    await user.type(within(dialog).getByLabelText(/Nome do cliente/i), 'Wizard User');
+    await user.click(within(dialog).getByRole('button', { name: /^Proximo$/i }));
 
-    await user.click(screen.getByLabelText(/^Plano$/i));
+    await user.click(within(dialog).getByRole('combobox', { name: /^Plano$/i }));
     await user.click(await screen.findByRole('option', { name: /Programa individual/i }));
 
-    await user.click(screen.getByLabelText(/Programa individual/i));
+    await user.click(within(dialog).getByRole('combobox', { name: /Programa individual/i }));
     await user.click(await screen.findByRole('option', { name: /Demo Program \(demo-program\)/i }));
 
-    await user.click(screen.getByLabelText(/Mensal/i));
-    await user.click(screen.getByRole('button', { name: /^Proximo$/i }));
+    await user.click(within(dialog).getByRole('radio', { name: /Mensal/i }));
+    await user.click(within(dialog).getByRole('button', { name: /^Proximo$/i }));
 
-    await user.click(screen.getByRole('button', { name: /Confirmar onboarding/i }));
+    await user.click(within(dialog).getByRole('button', { name: /Confirmar onboarding/i }));
 
     await waitFor(() => {
       expect(capturedPayload).not.toBeNull();
@@ -342,16 +411,17 @@ describe('CustomersPanel', () => {
     renderWithProviders(<CustomersPanel />);
 
     await user.click(screen.getByRole('button', { name: /Novo onboarding/i }));
-    await user.type(screen.getByLabelText(/Email do cliente/i), 'plan@example.com');
-    await user.type(screen.getByLabelText(/Nome do cliente/i), 'Plan User');
-    await user.click(screen.getByRole('button', { name: /^Proximo$/i }));
+    const dialog = screen.getByRole('dialog', { name: /Onboarding de cliente/i });
+    await user.type(within(dialog).getByLabelText(/Email do cliente/i), 'plan@example.com');
+    await user.type(within(dialog).getByLabelText(/Nome do cliente/i), 'Plan User');
+    await user.click(within(dialog).getByRole('button', { name: /^Proximo$/i }));
 
-    await user.click(screen.getByLabelText(/^Plano$/i));
+    await user.click(within(dialog).getByRole('combobox', { name: /^Plano$/i }));
     await user.click(await screen.findByRole('option', { name: /Basic \(basic\)/i }));
-    expect(screen.queryByLabelText(/^Programa$/i)).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('combobox', { name: /^Programa$/i })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /^Proximo$/i }));
-    await user.click(screen.getByRole('button', { name: /Confirmar onboarding/i }));
+    await user.click(within(dialog).getByRole('button', { name: /^Proximo$/i }));
+    await user.click(within(dialog).getByRole('button', { name: /Confirmar onboarding/i }));
 
     await waitFor(() => {
       expect(capturedPayload).not.toBeNull();

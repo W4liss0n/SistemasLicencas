@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Inject,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards
@@ -17,10 +18,18 @@ import {
   AdminOperationalSummaryResponseDto,
   LicenseActionRequestDto,
   ProvisionLicenseRequestDto,
-  RenewLicenseRequestDto
+  RenewLicenseRequestDto,
+  UpdateLicenseRequestDto
 } from '../dto/admin-backoffice.dto';
 import { InternalApiKeyGuard } from '../guards/internal-api-key.guard';
-import { AdminBackofficeService } from '../services/admin-backoffice.service';
+import { AdminLicensesApplicationService } from '../services/application/admin-licenses-application.service';
+import { AdminOperationalSummaryApplicationService } from '../services/application/admin-operational-summary-application.service';
+import {
+  toLicenseActionCommand,
+  toProvisionLicenseCommand,
+  toRenewLicenseCommand,
+  toUpdateLicenseCommand
+} from './admin-backoffice-command.mapper';
 import { requireInternalIdempotencyKey } from '../utils/required-headers';
 import { DomainHttpError } from '../../../common/errors/domain-http-error';
 
@@ -30,8 +39,10 @@ import { DomainHttpError } from '../../../common/errors/domain-http-error';
 @Controller('internal/admin')
 export class AdminBackofficeController {
   constructor(
-    @Inject(AdminBackofficeService)
-    private readonly adminBackofficeService: AdminBackofficeService
+    @Inject(AdminLicensesApplicationService)
+    private readonly licensesService: AdminLicensesApplicationService,
+    @Inject(AdminOperationalSummaryApplicationService)
+    private readonly operationalSummaryService: AdminOperationalSummaryApplicationService
   ) {}
 
   @Post('licenses')
@@ -42,7 +53,7 @@ export class AdminBackofficeController {
     @Body() payload: ProvisionLicenseRequestDto
   ): Promise<AdminLicenseResponseDto> {
     const idempotencyKey = requireInternalIdempotencyKey(idempotencyKeyHeader);
-    return this.adminBackofficeService.provision(payload, idempotencyKey);
+    return this.licensesService.provision(toProvisionLicenseCommand(payload), idempotencyKey);
   }
 
   @Post('licenses/:licenseKey/renew')
@@ -54,7 +65,22 @@ export class AdminBackofficeController {
     @Body() payload: RenewLicenseRequestDto
   ): Promise<AdminLicenseResponseDto> {
     const idempotencyKey = requireInternalIdempotencyKey(idempotencyKeyHeader);
-    return this.adminBackofficeService.renew(licenseKey, payload, idempotencyKey);
+    return this.licensesService.renew(toRenewLicenseCommand(licenseKey, payload), idempotencyKey);
+  }
+
+  @Patch('licenses/:licenseKey')
+  @HttpCode(200)
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  async updateLicense(
+    @Param('licenseKey') licenseKey: string,
+    @Headers('idempotency-key') idempotencyKeyHeader: string | undefined,
+    @Body() payload: UpdateLicenseRequestDto
+  ): Promise<AdminLicenseResponseDto> {
+    const idempotencyKey = requireInternalIdempotencyKey(idempotencyKeyHeader);
+    return this.licensesService.updateLicense(
+      toUpdateLicenseCommand(licenseKey, payload),
+      idempotencyKey
+    );
   }
 
   @Post('licenses/:licenseKey/block')
@@ -66,7 +92,7 @@ export class AdminBackofficeController {
     @Body() payload: LicenseActionRequestDto
   ): Promise<AdminLicenseResponseDto> {
     const idempotencyKey = requireInternalIdempotencyKey(idempotencyKeyHeader);
-    return this.adminBackofficeService.block(licenseKey, payload, idempotencyKey);
+    return this.licensesService.block(toLicenseActionCommand(licenseKey, payload), idempotencyKey);
   }
 
   @Post('licenses/:licenseKey/unblock')
@@ -78,7 +104,10 @@ export class AdminBackofficeController {
     @Body() payload: LicenseActionRequestDto
   ): Promise<AdminLicenseResponseDto> {
     const idempotencyKey = requireInternalIdempotencyKey(idempotencyKeyHeader);
-    return this.adminBackofficeService.unblock(licenseKey, payload, idempotencyKey);
+    return this.licensesService.unblock(
+      toLicenseActionCommand(licenseKey, payload),
+      idempotencyKey
+    );
   }
 
   @Post('licenses/:licenseKey/cancel')
@@ -90,7 +119,7 @@ export class AdminBackofficeController {
     @Body() payload: LicenseActionRequestDto
   ): Promise<AdminLicenseResponseDto> {
     const idempotencyKey = requireInternalIdempotencyKey(idempotencyKeyHeader);
-    return this.adminBackofficeService.cancel(licenseKey, payload, idempotencyKey);
+    return this.licensesService.cancel(toLicenseActionCommand(licenseKey, payload), idempotencyKey);
   }
 
   @Get('licenses/:licenseKey')
@@ -98,7 +127,7 @@ export class AdminBackofficeController {
   async getLicenseDetails(
     @Param('licenseKey') licenseKey: string
   ): Promise<AdminLicenseResponseDto> {
-    return this.adminBackofficeService.getLicenseDetails(licenseKey);
+    return this.licensesService.getLicenseDetails(licenseKey);
   }
 
   @Get('operational-summary')
@@ -118,6 +147,6 @@ export class AdminBackofficeController {
       }
       windowDays = parsed;
     }
-    return this.adminBackofficeService.getOperationalSummary(windowDays);
+    return this.operationalSummaryService.getOperationalSummary(windowDays);
   }
 }

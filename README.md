@@ -15,6 +15,8 @@ Workspace canonico do rewrite `sistema-licencas-v2`.
 
 ```bash
 npm install
+npm run dev
+npm run dev:auth
 npm run api:dev
 npm run api:test
 npm run api:typecheck
@@ -24,6 +26,11 @@ npm run admin-web:dev
 npm run admin-web:test
 npm run compat:legacy:local
 ```
+
+Fluxo recomendado:
+- `npm run dev` sobe API + `admin-web` no mesmo terminal.
+- `npm run dev:auth` sobe infra local, aplica migrations/seed, inicia mock OIDC e sobe a API para o fluxo de browser auth.
+- `npm run api:dev` e `npm run admin-web:dev` continuam disponiveis para trabalho isolado.
 
 ## Guardrails
 

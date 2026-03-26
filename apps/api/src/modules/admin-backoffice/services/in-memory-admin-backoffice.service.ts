@@ -24,7 +24,9 @@ import {
   OnboardCustomerInput,
   PaginatedResult,
   ProvisionLicenseInput,
-  RenewLicenseInput
+  RenewLicenseInput,
+  UpdateLicenseInput,
+  UpdatePlanInput
 } from '../ports/admin-backoffice.port';
 
 type ProgramRecord = {
@@ -290,6 +292,63 @@ export class InMemoryAdminBackofficeService implements AdminBackofficePort {
       this.planPrograms.add(this.planProgramKey(plan.id, programId));
     }
     this.auditLogs.push({ action: 'admin_plan_create', createdAt: now });
+
+    return this.toPlanSummary(plan);
+  }
+
+  async updatePlan(input: UpdatePlanInput): Promise<AdminPlanSummary> {
+    const planId = this.normalizeRequiredText(input.planId, 'plan_id');
+    const plan = this.plans.get(planId);
+    if (!plan || plan.isInternal) {
+      this.throwDomainError(HttpStatus.NOT_FOUND, 'plan_not_found', 'Plan not found');
+    }
+
+    const name = this.normalizeRequiredText(input.name, 'name');
+    const description = this.normalizeOptionalText(input.description);
+    const maxDevices = this.normalizePositiveInteger(input.maxDevices, 'max_devices');
+    const maxOfflineHours = this.normalizePositiveInteger(input.maxOfflineHours, 'max_offline_hours');
+    const features = this.normalizeFeatures(input.features);
+    const programIds = Array.from(
+      new Set(
+        input.programIds
+          .map((programId) => this.normalizeRequiredText(programId, 'program_ids'))
+          .filter((programId) => programId.length > 0)
+      )
+    );
+
+    if (programIds.length === 0) {
+      this.throwDomainError(
+        HttpStatus.BAD_REQUEST,
+        'invalid_request',
+        'program_ids must include at least one program'
+      );
+    }
+
+    for (const programId of programIds) {
+      const program = this.programs.get(programId);
+      if (!program) {
+        this.throwDomainError(HttpStatus.NOT_FOUND, 'program_not_found', 'Program not found');
+      }
+    }
+
+    plan.name = name;
+    plan.description = description;
+    plan.maxDevices = maxDevices;
+    plan.maxOfflineHours = maxOfflineHours;
+    plan.features = features;
+    plan.updatedAt = new Date();
+
+    for (const link of Array.from(this.planPrograms)) {
+      if (link.startsWith(`${plan.id}:`)) {
+        this.planPrograms.delete(link);
+      }
+    }
+
+    for (const programId of programIds) {
+      this.planPrograms.add(this.planProgramKey(plan.id, programId));
+    }
+
+    this.auditLogs.push({ action: 'admin_plan_update', createdAt: new Date() });
 
     return this.toPlanSummary(plan);
   }
@@ -642,6 +701,38 @@ export class InMemoryAdminBackofficeService implements AdminBackofficePort {
     this.auditLogs.push({
       action: 'admin_license_renew',
       createdAt: new Date()
+    });
+
+    return this.getLicenseDetails({ licenseKey: license.licenseKey });
+  }
+
+  async updateLicense(input: UpdateLicenseInput): Promise<AdminLicenseDetails> {
+    const license = this.getLicenseByKey(input.licenseKey);
+    const subscription = this.getSubscription(license.subscriptionId);
+    const nextEndAt = this.parseDate(input.subscriptionEndAt, 'subscription_end_at');
+    const maxOfflineHours = this.normalizePositiveInteger(input.maxOfflineHours, 'max_offline_hours');
+
+    if (nextEndAt <= subscription.startAt) {
+      this.throwDomainError(
+        HttpStatus.BAD_REQUEST,
+        'invalid_request',
+        'subscription_end_at must be greater than subscription_start_at'
+      );
+    }
+
+    const now = new Date();
+    subscription.endAt = nextEndAt;
+    subscription.autoRenew = input.autoRenew;
+    subscription.status = this.resolveSubscriptionStatusForEdit(subscription.status, nextEndAt, now);
+    subscription.updatedAt = now;
+
+    license.maxOfflineHours = maxOfflineHours;
+    license.status = this.resolveLicenseStatusForEdit(license.status, subscription.status);
+    license.updatedAt = now;
+
+    this.auditLogs.push({
+      action: 'admin_license_update',
+      createdAt: now
     });
 
     return this.getLicenseDetails({ licenseKey: license.licenseKey });
@@ -1240,6 +1331,42 @@ export class InMemoryAdminBackofficeService implements AdminBackofficePort {
       'invalid_request',
       'selection_mode must be either plan or individual_program'
     );
+  }
+
+  private resolveSubscriptionStatusForEdit(
+    currentStatus: string,
+    nextEndAt: Date,
+    now: Date
+  ): string {
+    if (currentStatus === 'cancelled') {
+      return 'cancelled';
+    }
+
+    if (nextEndAt <= now) {
+      return 'expired';
+    }
+
+    if (currentStatus === 'suspended') {
+      return 'suspended';
+    }
+
+    return 'active';
+  }
+
+  private resolveLicenseStatusForEdit(currentStatus: string, subscriptionStatus: string): string {
+    if (currentStatus === 'blocked') {
+      return 'blocked';
+    }
+
+    if (currentStatus === 'inactive') {
+      return 'inactive';
+    }
+
+    if (subscriptionStatus === 'expired') {
+      return 'expired';
+    }
+
+    return 'active';
   }
 
   private endUserKey(customerId: string, identifier: string): string {

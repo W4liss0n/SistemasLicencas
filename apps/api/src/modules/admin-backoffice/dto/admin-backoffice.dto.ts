@@ -82,6 +82,22 @@ export class RenewLicenseRequestDto {
   reason?: string;
 }
 
+export class UpdateLicenseRequestDto {
+  @IsString()
+  subscription_end_at!: string;
+
+  @IsBoolean()
+  auto_renew!: boolean;
+
+  @IsInt()
+  @Min(1)
+  max_offline_hours!: number;
+
+  @IsOptional()
+  @IsString()
+  requested_by?: string;
+}
+
 export class LicenseActionRequestDto {
   @IsOptional()
   @IsString()
@@ -111,6 +127,39 @@ export class CreateProgramRequestDto {
 }
 
 export class CreatePlanRequestDto {
+  @IsString()
+  @MinLength(2)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(1000)
+  max_devices!: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(24 * 365)
+  max_offline_hours!: number;
+
+  @IsArray()
+  @IsString({ each: true })
+  features!: string[];
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  program_ids!: string[];
+
+  @IsOptional()
+  @IsString()
+  requested_by?: string;
+}
+
+export class UpdatePlanRequestDto {
   @IsString()
   @MinLength(2)
   name!: string;

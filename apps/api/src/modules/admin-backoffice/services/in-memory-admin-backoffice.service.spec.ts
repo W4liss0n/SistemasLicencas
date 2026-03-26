@@ -128,6 +128,34 @@ describe('InMemoryAdminBackofficeService', () => {
     expect(second.subscription.status).toBe('cancelled');
   });
 
+  it('updates license contract fields without changing its key', async () => {
+    const provisioned = await service.provisionLicense({
+      programCode: 'demo-program',
+      planCode: 'basic',
+      customer: {
+        email: 'edit-license@example.com',
+        name: 'Edit License'
+      },
+      subscription: {
+        endAt: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    });
+
+    const updated = await service.updateLicense({
+      licenseKey: provisioned.license.licenseKey,
+      subscriptionEndAt: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString(),
+      autoRenew: true,
+      maxOfflineHours: 120
+    });
+
+    expect(updated.license.licenseKey).toBe(provisioned.license.licenseKey);
+    expect(updated.license.maxOfflineHours).toBe(120);
+    expect(updated.subscription.autoRenew).toBe(true);
+    expect(new Date(updated.subscription.endAt).getTime()).toBeGreaterThan(
+      new Date(provisioned.subscription.endAt).getTime()
+    );
+  });
+
   it('creates programs with unique generated code', async () => {
     const first = await service.createProgram({
       name: 'Desktop Agent'
@@ -151,6 +179,28 @@ describe('InMemoryAdminBackofficeService', () => {
         programIds: []
       })
     ).rejects.toThrow('program_ids must include at least one program');
+  });
+
+  it('updates plan details and linked programs', async () => {
+    const additionalProgram = await service.createProgram({
+      name: 'Updater Program'
+    });
+
+    const updated = await service.updatePlan({
+      planId: '22222222-2222-4222-8222-222222222222',
+      name: 'Basic Updated',
+      description: 'Plano basic atualizado',
+      maxDevices: 4,
+      maxOfflineHours: 96,
+      features: ['validate', 'heartbeat', 'analytics'],
+      programIds: [additionalProgram.id]
+    });
+
+    expect(updated.name).toBe('Basic Updated');
+    expect(updated.maxDevices).toBe(4);
+    expect(updated.maxOfflineHours).toBe(96);
+    expect(updated.programs).toHaveLength(1);
+    expect(updated.programs[0]?.id).toBe(additionalProgram.id);
   });
 
   it('fails onboarding when plan does not include selected program', async () => {

@@ -1,6 +1,6 @@
 # Compatibility Matrix (Generated)
 
-Generated at: 2026-03-05T23:28:13.486Z
+Generated at: 2026-03-26T00:24:15.382Z
 
 ## Semantic Gate
 

@@ -32,6 +32,22 @@ export default defineConfig(({ mode }) => {
     preview: {
       port: Number(env.ADMIN_WEB_PREVIEW_PORT || 4273)
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'query-vendor': ['@tanstack/react-query'],
+            'mui-vendor': [
+              '@emotion/react',
+              '@emotion/styled',
+              '@mui/icons-material',
+              '@mui/material'
+            ]
+          }
+        }
+      }
+    },
     test: {
       environment: 'jsdom',
       setupFiles: './src/test/setup.ts',

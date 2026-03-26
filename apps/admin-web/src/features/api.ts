@@ -16,7 +16,9 @@ import type {
   LicenseActionPayload,
   OnboardCustomerPayload,
   ProvisionLicensePayload,
-  RenewLicensePayload
+  RenewLicensePayload,
+  UpdateLicensePayload,
+  UpdatePlanPayload
 } from '../types/api';
 
 export const queryKeys = {
@@ -87,6 +89,21 @@ export async function createPlan(payload: CreatePlanPayload, idempotencyKey: str
   });
 }
 
+export async function updatePlan(
+  planId: string,
+  payload: UpdatePlanPayload,
+  idempotencyKey: string
+): Promise<AdminPlanResponse> {
+  return requestJson<AdminPlanResponse>(`/admin-api/plans/${encodeURIComponent(planId)}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function listCustomers(input: ListInput): Promise<AdminCustomersListResponse> {
   return requestJson<AdminCustomersListResponse>(`/admin-api/customers?${listQueryString(input)}`);
 }
@@ -141,6 +158,21 @@ export async function renewLicense(
 ): Promise<AdminLicenseResponse> {
   return requestJson<AdminLicenseResponse>(`/admin-api/licenses/${encodeURIComponent(licenseKey)}/renew`, {
     method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateLicense(
+  licenseKey: string,
+  payload: UpdateLicensePayload,
+  idempotencyKey: string
+): Promise<AdminLicenseResponse> {
+  return requestJson<AdminLicenseResponse>(`/admin-api/licenses/${encodeURIComponent(licenseKey)}`, {
+    method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
       'Idempotency-Key': idempotencyKey

@@ -21,7 +21,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { queryClient } from '../../app/query-client';
 import { isMutationsEnabled } from '../../app/runtime-config';
-import { getOperatorName } from '../../app/session';
+import { getOperatorContextName } from '../../app/session';
 import { SectionCard } from '../../design/components/SectionCard';
 import { useI18n } from '../../i18n';
 import { ApiError } from '../../lib/http/api-error';
@@ -45,7 +45,7 @@ const provisionSchema = z.object({
 type ProvisionFormValues = z.infer<typeof provisionSchema>;
 
 export function ProvisionLicenseForm() {
-  const operator = getOperatorName() || 'operator';
+  const operator = getOperatorContextName() || 'operator';
   const mutationsEnabled = isMutationsEnabled();
   const [createdLicenseKey, setCreatedLicenseKey] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);

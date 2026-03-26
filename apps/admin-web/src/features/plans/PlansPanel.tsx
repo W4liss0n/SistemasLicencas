@@ -23,12 +23,13 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { queryClient } from '../../app/query-client';
 import { isMutationsEnabled } from '../../app/runtime-config';
-import { getOperatorName } from '../../app/session';
+import { getOperatorContextName } from '../../app/session';
 import { SectionCard } from '../../design/components/SectionCard';
 import { useI18n } from '../../i18n';
 import { ApiError } from '../../lib/http/api-error';
 import { createIdempotencyKey } from '../../lib/idempotency/create-idempotency-key';
-import { createPlan, listPlans, listPrograms, queryKeys } from '../api';
+import type { AdminPlan } from '../../types/api';
+import { createPlan, listPlans, listPrograms, queryKeys, updatePlan } from '../api';
 import { PlanSummaryCard } from './PlanSummaryCard';
 
 const formSchema = z.object({
@@ -41,26 +42,58 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+type DialogMode = 'create' | 'edit';
+
+const defaultValues: FormValues = {
+  name: '',
+  description: '',
+  max_devices: 1,
+  max_offline_hours: 72,
+  features_raw: 'validate',
+  program_ids: []
+};
+
+function buildPayload(values: FormValues, operator: string) {
+  const features = (values.features_raw ?? '')
+    .split(',')
+    .map((feature) => feature.trim())
+    .filter((feature) => feature.length > 0);
+
+  return {
+    name: values.name,
+    description: values.description || undefined,
+    max_devices: values.max_devices,
+    max_offline_hours: values.max_offline_hours,
+    features,
+    program_ids: values.program_ids,
+    requested_by: operator
+  };
+}
+
+function mapPlanToFormValues(plan: AdminPlan): FormValues {
+  return {
+    name: plan.name,
+    description: plan.description ?? '',
+    max_devices: plan.max_devices,
+    max_offline_hours: plan.max_offline_hours,
+    features_raw: plan.features.join(', '),
+    program_ids: plan.programs.map((program) => program.id)
+  };
+}
 
 export function PlansPanel() {
-  const operator = getOperatorName() || 'operator';
+  const operator = getOperatorContextName() || 'operator';
   const mutationsEnabled = isMutationsEnabled();
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [createdCode, setCreatedCode] = useState<string | null>(null);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<DialogMode | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<AdminPlan | null>(null);
+  const [feedback, setFeedback] = useState<{ kind: DialogMode; code: string } | null>(null);
   const { t } = useI18n();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: '',
-      description: '',
-      max_devices: 1,
-      max_offline_hours: 72,
-      features_raw: 'validate',
-      program_ids: []
-    }
+    defaultValues
   });
 
   const programsQuery = useQuery({
@@ -73,42 +106,49 @@ export function PlansPanel() {
     queryFn: () => listPlans({ page: 1, pageSize: 20, q: search })
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (values: FormValues) => {
+  const mutation = useMutation({
+    mutationFn: async (input: { mode: DialogMode; values: FormValues; planId?: string }) => {
       const idempotencyKey = createIdempotencyKey();
-      const features = (values.features_raw ?? '')
-        .split(',')
-        .map((feature) => feature.trim())
-        .filter((feature) => feature.length > 0);
+      const payload = buildPayload(input.values, operator);
 
-      return createPlan(
-        {
-          name: values.name,
-          description: values.description || undefined,
-          max_devices: values.max_devices,
-          max_offline_hours: values.max_offline_hours,
-          features,
-          program_ids: values.program_ids,
-          requested_by: operator
-        },
-        idempotencyKey
-      );
+      if (input.mode === 'edit') {
+        return updatePlan(input.planId ?? '', payload, idempotencyKey);
+      }
+
+      return createPlan(payload, idempotencyKey);
     },
-    onSuccess: (response) => {
-      setCreatedCode(response.plan.code);
-      setIsCreateOpen(false);
-      form.reset({
-        ...form.getValues(),
-        name: '',
-        description: '',
-        features_raw: 'validate',
-        program_ids: []
-      });
-      queryClient.invalidateQueries({ queryKey: queryKeys.plans(1, 20, search) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.plans(1, 100, '') });
-      queryClient.invalidateQueries({ queryKey: queryKeys.customers(1, 20, '') });
+    onSuccess: (response, variables) => {
+      setFeedback({ kind: variables.mode, code: response.plan.code });
+      closeDialog();
+      queryClient.invalidateQueries({ queryKey: ['plans'] });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['license-detail'] });
     }
   });
+
+  function openCreateDialog(): void {
+    setSelectedPlan(null);
+    setDialogMode('create');
+    mutation.reset();
+    form.reset(defaultValues);
+  }
+
+  function openEditDialog(plan: AdminPlan): void {
+    setSelectedPlan(plan);
+    setDialogMode('edit');
+    mutation.reset();
+    form.reset(mapPlanToFormValues(plan));
+  }
+
+  function closeDialog(): void {
+    setDialogMode(null);
+    setSelectedPlan(null);
+    mutation.reset();
+    form.reset(defaultValues);
+  }
+
+  const isEditMode = dialogMode === 'edit';
 
   return (
     <>
@@ -129,7 +169,7 @@ export function PlansPanel() {
             <Button
               variant="contained"
               startIcon={<AddCircleOutlineOutlinedIcon />}
-              onClick={() => setIsCreateOpen(true)}
+              onClick={openCreateDialog}
               disabled={!mutationsEnabled}
             >
               {t('plans.create.open')}
@@ -140,9 +180,11 @@ export function PlansPanel() {
         <Stack spacing={1.25}>
           {!mutationsEnabled ? <Alert severity="warning">{t('mutations.disabled')}</Alert> : null}
 
-          {createdCode ? (
+          {feedback ? (
             <Alert icon={<CheckCircleOutlineOutlinedIcon fontSize="inherit" />} severity="success">
-              {t('plans.create.success', { code: createdCode })}
+              {feedback.kind === 'create'
+                ? t('plans.create.success', { code: feedback.code })
+                : t('plans.update.success', { code: feedback.code })}
             </Alert>
           ) : null}
 
@@ -163,34 +205,41 @@ export function PlansPanel() {
           <Grid container spacing={1.5}>
             {(plansQuery.data?.items ?? []).map((plan) => (
               <Grid key={plan.id} size={{ xs: 12, md: 6, xl: 4 }}>
-                <PlanSummaryCard plan={plan} />
+                <PlanSummaryCard plan={plan} onEdit={openEditDialog} editDisabled={!mutationsEnabled} />
               </Grid>
             ))}
           </Grid>
         </Stack>
       </SectionCard>
 
-      <Dialog open={isCreateOpen} onClose={() => setIsCreateOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>{t('plans.create.title')}</DialogTitle>
+      <Dialog open={dialogMode !== null} onClose={closeDialog} fullWidth maxWidth="md">
+        <DialogTitle>{isEditMode ? t('plans.update.title') : t('plans.create.title')}</DialogTitle>
         <DialogContent>
           <Stack
             component="form"
             spacing={1.2}
             sx={{ pt: 1 }}
             onSubmit={form.handleSubmit((values) => {
-              if (!mutationsEnabled) {
+              if (!dialogMode || !mutationsEnabled) {
                 return;
               }
-              createMutation.mutate(values);
+
+              mutation.mutate({
+                mode: dialogMode,
+                values,
+                planId: selectedPlan?.id
+              });
             })}
           >
             <Typography variant="body2" sx={{ color: 'var(--controlroom-ink-secondary)' }}>
-              {t('plans.create.subtitle')}
+              {isEditMode ? t('plans.update.subtitle') : t('plans.create.subtitle')}
             </Typography>
 
-            {createMutation.error instanceof ApiError ? (
+            {mutation.error instanceof ApiError ? (
               <Alert severity="error">
-                {createMutation.error.problem.title}: {createMutation.error.problem.detail || t('plans.create.errorDefault')}
+                {mutation.error.problem.title}:{' '}
+                {mutation.error.problem.detail ||
+                  (isEditMode ? t('plans.update.errorDefault') : t('plans.create.errorDefault'))}
               </Alert>
             ) : null}
 
@@ -270,11 +319,17 @@ export function PlansPanel() {
             </Stack>
 
             <DialogActions sx={{ px: 0, pb: 0 }}>
-              <Button type="button" variant="outlined" onClick={() => form.reset()} disabled={createMutation.isPending}>
-                {t('common.clear')}
+              <Button type="button" variant="outlined" onClick={closeDialog} disabled={mutation.isPending}>
+                {t('common.close')}
               </Button>
-              <Button type="submit" variant="contained" disabled={!mutationsEnabled || createMutation.isPending}>
-                {createMutation.isPending ? t('plans.create.submitting') : t('plans.create.submit')}
+              <Button type="submit" variant="contained" disabled={!mutationsEnabled || mutation.isPending}>
+                {mutation.isPending
+                  ? isEditMode
+                    ? t('plans.update.submitting')
+                    : t('plans.create.submitting')
+                  : isEditMode
+                    ? t('plans.update.submit')
+                    : t('plans.create.submit')}
               </Button>
             </DialogActions>
           </Stack>

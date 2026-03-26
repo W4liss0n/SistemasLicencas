@@ -1,23 +1,72 @@
-import type { ReactElement } from 'react';
+import { Box, CircularProgress } from '@mui/material';
+import type { ReactElement, ReactNode } from 'react';
+import { Suspense, lazy } from 'react';
 import { Navigate, createBrowserRouter } from 'react-router-dom';
-import { getOperatorName } from './session';
+import { hasOperatorContext } from './session';
 import { AccessDeniedPage } from '../pages/AccessDeniedPage';
-import { CustomersPage } from '../pages/CustomersPage';
-import { DashboardPage } from '../pages/DashboardPage';
-import { LicenseDetailPage } from '../pages/LicenseDetailPage';
-import { LicenseProvisionPage } from '../pages/LicenseProvisionPage';
-import { LicenseSearchPage } from '../pages/LicenseSearchPage';
 import { LoginPage } from '../pages/LoginPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
-import { PlansPage } from '../pages/PlansPage';
-import { ProgramsPage } from '../pages/ProgramsPage';
 
-function ProtectedRoute({ element }: { element: ReactElement }) {
-  if (!getOperatorName()) {
+const DashboardPage = lazy(async () => {
+  const module = await import('../pages/DashboardPage');
+  return { default: module.DashboardPage };
+});
+
+const LicenseSearchPage = lazy(async () => {
+  const module = await import('../pages/LicenseSearchPage');
+  return { default: module.LicenseSearchPage };
+});
+
+const LicenseProvisionPage = lazy(async () => {
+  const module = await import('../pages/LicenseProvisionPage');
+  return { default: module.LicenseProvisionPage };
+});
+
+const ProgramsPage = lazy(async () => {
+  const module = await import('../pages/ProgramsPage');
+  return { default: module.ProgramsPage };
+});
+
+const PlansPage = lazy(async () => {
+  const module = await import('../pages/PlansPage');
+  return { default: module.PlansPage };
+});
+
+const CustomersPage = lazy(async () => {
+  const module = await import('../pages/CustomersPage');
+  return { default: module.CustomersPage };
+});
+
+const LicenseDetailPage = lazy(async () => {
+  const module = await import('../pages/LicenseDetailPage');
+  return { default: module.LicenseDetailPage };
+});
+
+function RouteLoadingFallback() {
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        backgroundColor: 'var(--controlroom-canvas)'
+      }}
+    >
+      <CircularProgress size={28} />
+    </Box>
+  );
+}
+
+function OperatorContextRoute({ element }: { element: ReactElement }) {
+  if (!hasOperatorContext()) {
     return <Navigate to="/login" replace />;
   }
 
-  return element;
+  return <Suspense fallback={<RouteLoadingFallback />}>{element}</Suspense>;
+}
+
+function protect(element: ReactElement): ReactNode {
+  return <OperatorContextRoute element={element} />;
 }
 
 export const router = createBrowserRouter([
@@ -35,31 +84,31 @@ export const router = createBrowserRouter([
   },
   {
     path: '/dashboard',
-    element: <ProtectedRoute element={<DashboardPage />} />
+    element: protect(<DashboardPage />)
   },
   {
     path: '/licenses/search',
-    element: <ProtectedRoute element={<LicenseSearchPage />} />
+    element: protect(<LicenseSearchPage />)
   },
   {
     path: '/licenses/provision',
-    element: <ProtectedRoute element={<LicenseProvisionPage />} />
+    element: protect(<LicenseProvisionPage />)
   },
   {
     path: '/programs',
-    element: <ProtectedRoute element={<ProgramsPage />} />
+    element: protect(<ProgramsPage />)
   },
   {
     path: '/plans',
-    element: <ProtectedRoute element={<PlansPage />} />
+    element: protect(<PlansPage />)
   },
   {
     path: '/customers',
-    element: <ProtectedRoute element={<CustomersPage />} />
+    element: protect(<CustomersPage />)
   },
   {
     path: '/licenses/:licenseKey',
-    element: <ProtectedRoute element={<LicenseDetailPage />} />
+    element: protect(<LicenseDetailPage />)
   },
   {
     path: '*',

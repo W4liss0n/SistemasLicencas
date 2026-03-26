@@ -44,12 +44,42 @@ describe('Admin internal API e2e', () => {
     expect(response.body.code).toBe('invalid_request');
   });
 
+  it('requires Idempotency-Key for internal patch mutations', async () => {
+    const response = await request(app.getHttpServer())
+      .patch('/api/v2/internal/admin/licenses/LIC-DEMO-MISSING')
+      .set('X-Internal-Api-Key', INTERNAL_KEY)
+      .send({
+        subscription_end_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        auto_renew: true,
+        max_offline_hours: 96
+      })
+      .expect(400);
+
+    expect(response.body.code).toBe('invalid_request');
+  });
+
   it('requires Idempotency-Key for catalog mutations', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/v2/internal/admin/programs')
       .set('X-Internal-Api-Key', INTERNAL_KEY)
       .send({
         name: 'No Idempotency Program'
+      })
+      .expect(400);
+
+    expect(response.body.code).toBe('invalid_request');
+  });
+
+  it('requires Idempotency-Key for catalog patch mutations', async () => {
+    const response = await request(app.getHttpServer())
+      .patch('/api/v2/internal/admin/plans/22222222-2222-4222-8222-222222222222')
+      .set('X-Internal-Api-Key', INTERNAL_KEY)
+      .send({
+        name: 'Basic Updated',
+        max_devices: 2,
+        max_offline_hours: 96,
+        features: ['validate', 'heartbeat'],
+        program_ids: ['11111111-1111-4111-8111-111111111111']
       })
       .expect(400);
 
@@ -179,6 +209,32 @@ describe('Admin internal API e2e', () => {
     expect(createPlan.body.plan.programs).toHaveLength(1);
     const planId = createPlan.body.plan.id as string;
 
+    const updatePlanPayload = {
+      name: 'Desktop Pro Plan Updated',
+      description: 'Updated from e2e',
+      max_devices: 4,
+      max_offline_hours: 144,
+      features: ['validate', 'activate', 'analytics'],
+      program_ids: [programId]
+    };
+    const updatePlan = await request(app.getHttpServer())
+      .patch(`/api/v2/internal/admin/plans/${planId}`)
+      .set('X-Internal-Api-Key', INTERNAL_KEY)
+      .set('Idempotency-Key', 'internal-plan-update-1')
+      .send(updatePlanPayload)
+      .expect(200);
+
+    expect(updatePlan.body.plan.name).toBe('Desktop Pro Plan Updated');
+    expect(updatePlan.body.plan.max_offline_hours).toBe(144);
+
+    const replayPlanUpdate = await request(app.getHttpServer())
+      .patch(`/api/v2/internal/admin/plans/${planId}`)
+      .set('X-Internal-Api-Key', INTERNAL_KEY)
+      .set('Idempotency-Key', 'internal-plan-update-1')
+      .send(updatePlanPayload)
+      .expect(200);
+    expect(replayPlanUpdate.body.plan.name).toBe('Desktop Pro Plan Updated');
+
     const onboardPayload = {
       selection_mode: 'plan',
       customer: {
@@ -214,6 +270,29 @@ describe('Admin internal API e2e', () => {
       .set('X-Internal-Api-Key', INTERNAL_KEY)
       .expect(200);
     expect(details.body.customer.email).toBe('new-onboard@example.com');
+
+    const updateLicensePayload = {
+      subscription_end_at: new Date(Date.now() + 35 * 24 * 60 * 60 * 1000).toISOString(),
+      auto_renew: true,
+      max_offline_hours: 96
+    };
+    const updatedLicense = await request(app.getHttpServer())
+      .patch(`/api/v2/internal/admin/licenses/${onboardedLicenseKey}`)
+      .set('X-Internal-Api-Key', INTERNAL_KEY)
+      .set('Idempotency-Key', 'internal-license-update-1')
+      .send(updateLicensePayload)
+      .expect(200);
+
+    expect(updatedLicense.body.subscription.auto_renew).toBe(true);
+    expect(updatedLicense.body.license.max_offline_hours).toBe(96);
+
+    const replayLicenseUpdate = await request(app.getHttpServer())
+      .patch(`/api/v2/internal/admin/licenses/${onboardedLicenseKey}`)
+      .set('X-Internal-Api-Key', INTERNAL_KEY)
+      .set('Idempotency-Key', 'internal-license-update-1')
+      .send(updateLicensePayload)
+      .expect(200);
+    expect(replayLicenseUpdate.body.license.max_offline_hours).toBe(96);
 
     const customers = await request(app.getHttpServer())
       .get('/api/v2/internal/admin/customers?page=1&page_size=20&q=new-onboard')

@@ -6,7 +6,9 @@
                        "apps/admin-web"
                    ],
     "scripts":  {
-                    "start:dev":  "npm run api:dev",
+                    "dev":  "node scripts/dev/dev-server.mjs",
+                    "dev:auth":  "node scripts/dev/dev-server.mjs --auth",
+                    "start:dev":  "npm run dev",
                     "test":  "npm run api:test",
                     "api:start":  "npm run start --workspace=sistema-licencas-v2",
                     "api:dev":  "npm run start:dev --workspace=sistema-licencas-v2",

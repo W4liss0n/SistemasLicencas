@@ -30,6 +30,7 @@ O legado `sistema-licencas` permanece apenas para compatibilidade e nao define c
 ## APIs internas de operacao
 ### Licensing admin
 - `POST /api/v2/internal/admin/licenses`
+- `PATCH /api/v2/internal/admin/licenses/:licenseKey`
 - `POST /api/v2/internal/admin/licenses/:licenseKey/renew`
 - `POST /api/v2/internal/admin/licenses/:licenseKey/block`
 - `POST /api/v2/internal/admin/licenses/:licenseKey/unblock`
@@ -43,12 +44,24 @@ O legado `sistema-licencas` permanece apenas para compatibilidade e nao define c
 - `POST /api/v2/internal/admin/users/:id/block`
 - `POST /api/v2/internal/admin/users/:id/unblock`
 
+### Catalogo administrativo
+- `POST /api/v2/internal/admin/programs`
+- `GET /api/v2/internal/admin/programs`
+- `POST /api/v2/internal/admin/plans`
+- `PATCH /api/v2/internal/admin/plans/:planId`
+- `GET /api/v2/internal/admin/plans`
+- `GET /api/v2/internal/admin/customers`
+- `GET /api/v2/internal/admin/customers/:customerId`
+- `POST /api/v2/internal/admin/customers`
+- `POST /api/v2/internal/admin/customers/onboard`
+
 ## Regras transversais
 - Header `X-Program-Id` obrigatorio em licensing e nos endpoints `login`, `refresh`, `logout`, `me` de auth.
 - Header `X-Internal-Api-Key` obrigatorio em todas as APIs internas.
 - Header `Idempotency-Key` obrigatorio em:
   - `activate`, `transfer`, `deactivate`
-  - `POST /api/v2/internal/admin/licenses*` (inclui `renew`, `block`, `unblock`, `cancel`)
+  - mutacoes internas de licensing: `POST /api/v2/internal/admin/licenses`, `PATCH /api/v2/internal/admin/licenses/:licenseKey`, `renew`, `block`, `unblock`, `cancel`
+  - mutacoes internas de planos: `POST /api/v2/internal/admin/plans` e `PATCH /api/v2/internal/admin/plans/:planId`
 - Erros retornam `application/problem+json` com `trace_id` e `x-request-id`.
 
 ## Pre-requisitos
@@ -107,8 +120,12 @@ npm install
 cp apps/api/.env.example apps/api/.env
 npm run prisma:migrate:dev
 npm run prisma:seed
-npm run start:dev
+npm run dev
 ```
+
+Observacao:
+- `npm run dev` e o entrypoint recomendado para subir API + admin-web no mesmo terminal.
+- Quando precisar isolar os processos, use `npm run api:dev` ou `npm run admin-web:dev`.
 
 ## Estrategia de migrations (dev x CI/prod)
 - Desenvolvimento local: `npm run prisma:migrate:dev`
@@ -149,7 +166,7 @@ Fluxo completo (mock OIDC, browser login e smoke SDK):
 Resumo rapido:
 ```bash
 cd SistemaLicencas
-powershell -ExecutionPolicy Bypass -File scripts/dev/prepare-browser-auth.ps1
+npm run dev:auth
 
 cd sdk/python
 set PYTHONPATH=src
