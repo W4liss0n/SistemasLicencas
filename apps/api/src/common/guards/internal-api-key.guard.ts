@@ -1,14 +1,16 @@
 import { CanActivate, ExecutionContext, HttpStatus, Injectable } from '@nestjs/common';
 import { timingSafeEqual } from 'node:crypto';
-import { AppConfigService } from '../../../config/app-config.service';
-import { DomainHttpError } from '../../../common/errors/domain-http-error';
+import { AppConfigService } from '../../config/app-config.service';
+import { DomainHttpError } from '../errors/domain-http-error';
 
 @Injectable()
 export class InternalApiKeyGuard implements CanActivate {
   constructor(private readonly configService: AppConfigService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<{ headers: Record<string, string | string[] | undefined> }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<{ headers: Record<string, string | string[] | undefined> }>();
     const header = request.headers['x-internal-api-key'];
     const provided = this.normalizeHeaderValue(header);
 

@@ -1,5 +1,5 @@
 import type { ExecutionContext } from '@nestjs/common';
-import { DomainHttpError } from '../../../common/errors/domain-http-error';
+import { DomainHttpError } from '../errors/domain-http-error';
 import { InternalApiKeyGuard } from './internal-api-key.guard';
 
 describe('InternalApiKeyGuard', () => {

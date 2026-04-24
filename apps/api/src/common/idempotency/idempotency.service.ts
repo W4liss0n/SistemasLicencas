@@ -1,10 +1,10 @@
 import { HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
-import { AppConfigService } from '../../../config/app-config.service';
-import { DomainHttpError } from '../../../common/errors/domain-http-error';
-import { PrismaService } from '../../../infra/prisma/prisma.service';
-import { MetricsService } from '../../../observability/metrics.service';
+import { AppConfigService } from '../../config/app-config.service';
+import { DomainHttpError } from '../errors/domain-http-error';
+import { PrismaService } from '../../infra/prisma/prisma.service';
+import { MetricsService } from '../../observability/metrics.service';
 
 type ExecuteResult<T> = {
   statusCode: number;

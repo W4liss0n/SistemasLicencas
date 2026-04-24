@@ -5,7 +5,7 @@ import {
 } from '../dto/license.dto';
 import { LICENSE_ENGINE_PORT, LicenseEnginePort } from '../ports/license-engine.port';
 import { throwFromLicenseEngineFailure } from './license-error.mapper';
-import { IdempotencyService } from './idempotency.service';
+import { IdempotencyService } from '../../../common/idempotency/idempotency.service';
 import {
   AUDIT_SECURITY_PORT,
   AuditSecurityPort

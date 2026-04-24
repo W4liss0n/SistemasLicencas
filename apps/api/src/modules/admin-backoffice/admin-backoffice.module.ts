@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { AppConfigService } from '../../config/app-config.service';
-import { IdempotencyService } from '../license-runtime/services/idempotency.service';
+import { CommonIdempotencyModule } from '../../common/idempotency/common-idempotency.module';
 import { AdminCatalogController } from './controllers/admin-catalog.controller';
 import { AdminBackofficeController } from './controllers/admin-backoffice.controller';
-import { InternalApiKeyGuard } from './guards/internal-api-key.guard';
+import { InternalApiKeyGuard } from '../../common/guards/internal-api-key.guard';
 import { ADMIN_BACKOFFICE_PORT } from './ports/admin-backoffice.port';
 import { AdminCatalogApplicationService } from './services/application/admin-catalog-application.service';
 import { AdminCustomersApplicationService } from './services/application/admin-customers-application.service';
@@ -13,6 +13,7 @@ import { InMemoryAdminBackofficeService } from './services/in-memory-admin-backo
 import { PrismaAdminBackofficeService } from './services/prisma-admin-backoffice.service';
 
 @Module({
+  imports: [CommonIdempotencyModule],
   controllers: [AdminBackofficeController, AdminCatalogController],
   providers: [
     AdminCatalogApplicationService,
@@ -20,7 +21,6 @@ import { PrismaAdminBackofficeService } from './services/prisma-admin-backoffice
     AdminLicensesApplicationService,
     AdminOperationalSummaryApplicationService,
     InternalApiKeyGuard,
-    IdempotencyService,
     InMemoryAdminBackofficeService,
     PrismaAdminBackofficeService,
     {

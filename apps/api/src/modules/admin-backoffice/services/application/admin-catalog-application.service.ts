@@ -11,7 +11,7 @@ import type {
   AdminProgramsListResponseDto
 } from '../../dto/admin-backoffice.dto';
 import { ADMIN_BACKOFFICE_PORT } from '../../ports/admin-backoffice.port';
-import { IdempotencyService } from '../../../license-runtime/services/idempotency.service';
+import { IdempotencyService } from '../../../../common/idempotency/idempotency.service';
 import { ADMIN_BACKOFFICE_ENDPOINTS } from '../admin-backoffice-endpoints';
 import {
   toPlanResponseDto,

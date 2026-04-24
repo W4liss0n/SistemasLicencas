@@ -29,7 +29,7 @@ import {
   OnboardCustomerRequestDto,
   UpdatePlanRequestDto
 } from '../dto/admin-backoffice.dto';
-import { InternalApiKeyGuard } from '../guards/internal-api-key.guard';
+import { InternalApiKeyGuard } from '../../../common/guards/internal-api-key.guard';
 import { AdminCatalogApplicationService } from '../services/application/admin-catalog-application.service';
 import { AdminCustomersApplicationService } from '../services/application/admin-customers-application.service';
 import {

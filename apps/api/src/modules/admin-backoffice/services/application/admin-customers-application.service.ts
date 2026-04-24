@@ -6,7 +6,7 @@ import type {
   AdminCustomersListResponseDto,
   AdminOnboardCustomerResponseDto
 } from '../../dto/admin-backoffice.dto';
-import { IdempotencyService } from '../../../license-runtime/services/idempotency.service';
+import { IdempotencyService } from '../../../../common/idempotency/idempotency.service';
 import { ADMIN_BACKOFFICE_ENDPOINTS } from '../admin-backoffice-endpoints';
 import {
   toCreateCustomerResponseDto,
