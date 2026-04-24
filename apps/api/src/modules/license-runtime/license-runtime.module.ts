@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AppConfigService } from '../../config/app-config.service';
+import { CommonIdempotencyModule } from '../../common/idempotency/common-idempotency.module';
 import { LicenseAuthController } from './controllers/license-auth.controller';
 import { LicensesController } from './controllers/licenses.controller';
 import { AuthenticationService } from './services/authentication.service';
@@ -8,7 +9,6 @@ import { LicenseActivationService } from './services/license-activation.service'
 import { LicenseHeartbeatService } from './services/license-heartbeat.service';
 import { LicenseTransferService } from './services/license-transfer.service';
 import { LicenseDeactivationService } from './services/license-deactivation.service';
-import { IdempotencyService } from './services/idempotency.service';
 import { FakeLicenseEngineAdapter } from './adapters/fake-license-engine.adapter';
 import { PrismaLicenseEngineAdapter } from './adapters/prisma-license-engine.adapter';
 import { LICENSE_ENGINE_PORT } from './ports/license-engine.port';
@@ -22,6 +22,7 @@ import { OfflineEntitlementModule } from '../offline-entitlement/offline-entitle
 
 @Module({
   imports: [
+    CommonIdempotencyModule,
     SubscriptionModule,
     CatalogBillingModule,
     DeviceTrustModule,
@@ -37,7 +38,6 @@ import { OfflineEntitlementModule } from '../offline-entitlement/offline-entitle
     LicenseHeartbeatService,
     LicenseTransferService,
     LicenseDeactivationService,
-    IdempotencyService,
     FakeLicenseEngineAdapter,
     PrismaLicenseEngineAdapter,
     {

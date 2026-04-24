@@ -1,4 +1,4 @@
-import { DomainHttpError } from '../../../common/errors/domain-http-error';
+import { DomainHttpError } from '../errors/domain-http-error';
 import { IdempotencyService } from './idempotency.service';
 
 describe('IdempotencyService', () => {

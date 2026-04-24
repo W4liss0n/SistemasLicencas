@@ -7,10 +7,17 @@ import type { MetricsService } from '../../../observability/metrics.service';
 import type { CatalogBillingPolicyPort } from '../../catalog-billing/ports/catalog-billing-policy.port';
 import type { DeviceTrustPort } from '../../device-trust/ports/device-trust.port';
 import type { OfflineEntitlementPort } from '../../offline-entitlement/ports/offline-entitlement.port';
+import { AuthAuditWriterService } from './auth-audit-writer.service';
+import { CurrentUserUseCase } from './current-user.use-case';
 import { EndUserAuthService } from './end-user-auth.service';
 import type { AuthRateLimitService } from './auth-rate-limit.service';
 import type { EntitlementResolverService, ResolvedEntitlement } from './entitlement-resolver.service';
+import { LoginUseCase } from './login.use-case';
+import { LogoutSessionUseCase } from './logout-session.use-case';
 import type { OidcProviderService } from './oidc-provider.service';
+import { ProgramResolverService } from './program-resolver.service';
+import { RefreshSessionUseCase } from './refresh-session.use-case';
+import { SessionTokenService } from './session-token.service';
 
 const ENTITLEMENT: ResolvedEntitlement = {
   customerId: 'customer-1',
@@ -232,17 +239,52 @@ function createService(): { service: EndUserAuthService; mocks: MockMap } {
     incrementRefreshReplayDetected
   } as unknown as MetricsService;
 
-  const service = new EndUserAuthService(
+  const programResolver = new ProgramResolverService(catalogBillingPolicy);
+  const authAuditWriter = new AuthAuditWriterService(prisma);
+  const sessionTokenService = new SessionTokenService(appConfig, jwtService, offlineEntitlement);
+  const loginUseCase = new LoginUseCase(
     appConfig,
     prisma,
-    jwtService,
-    catalogBillingPolicy,
     deviceTrust,
-    offlineEntitlement,
     oidcProvider,
     rateLimitService,
     entitlementResolver,
-    metricsService
+    metricsService,
+    programResolver,
+    sessionTokenService,
+    authAuditWriter
+  );
+  const refreshSessionUseCase = new RefreshSessionUseCase(
+    appConfig,
+    prisma,
+    deviceTrust,
+    rateLimitService,
+    entitlementResolver,
+    metricsService,
+    programResolver,
+    sessionTokenService,
+    authAuditWriter
+  );
+  const logoutSessionUseCase = new LogoutSessionUseCase(
+    prisma,
+    programResolver,
+    sessionTokenService,
+    authAuditWriter
+  );
+  const currentUserUseCase = new CurrentUserUseCase(
+    prisma,
+    entitlementResolver,
+    programResolver
+  );
+
+  const service = new EndUserAuthService(
+    appConfig,
+    oidcProvider,
+    loginUseCase,
+    refreshSessionUseCase,
+    logoutSessionUseCase,
+    currentUserUseCase,
+    sessionTokenService
   );
 
   return {

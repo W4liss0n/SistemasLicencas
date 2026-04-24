@@ -6,7 +6,7 @@ import {
   AdminUserResponseDto
 } from '../dto/auth.dto';
 import { EndUserAdminService } from '../services/end-user-admin.service';
-import { InternalApiKeyGuard } from '../../admin-backoffice/guards/internal-api-key.guard';
+import { InternalApiKeyGuard } from '../../../common/guards/internal-api-key.guard';
 
 @ApiExcludeController()
 @UseGuards(InternalApiKeyGuard)

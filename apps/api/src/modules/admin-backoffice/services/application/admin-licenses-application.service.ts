@@ -5,7 +5,7 @@ import {
   type AdminLicenseDetails
 } from '../../ports/admin-backoffice.port';
 import type { AdminLicenseResponseDto } from '../../dto/admin-backoffice.dto';
-import { IdempotencyService } from '../../../license-runtime/services/idempotency.service';
+import { IdempotencyService } from '../../../../common/idempotency/idempotency.service';
 import { ADMIN_BACKOFFICE_ENDPOINTS } from '../admin-backoffice-endpoints';
 import { toLicenseResponseDto } from '../admin-backoffice-response.mapper';
 import type {

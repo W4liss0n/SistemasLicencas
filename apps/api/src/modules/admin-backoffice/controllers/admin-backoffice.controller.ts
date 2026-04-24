@@ -21,7 +21,7 @@ import {
   RenewLicenseRequestDto,
   UpdateLicenseRequestDto
 } from '../dto/admin-backoffice.dto';
-import { InternalApiKeyGuard } from '../guards/internal-api-key.guard';
+import { InternalApiKeyGuard } from '../../../common/guards/internal-api-key.guard';
 import { AdminLicensesApplicationService } from '../services/application/admin-licenses-application.service';
 import { AdminOperationalSummaryApplicationService } from '../services/application/admin-operational-summary-application.service';
 import {
