@@ -7,13 +7,6 @@ type RequestOptions = RequestInit & {
   timeoutMs?: number;
 };
 
-class RequestTimeoutError extends Error {
-  constructor() {
-    super('Request timeout');
-    this.name = 'RequestTimeoutError';
-  }
-}
-
 function isAbortError(error: unknown): boolean {
   return (
     typeof error === 'object' &&
@@ -21,6 +14,34 @@ function isAbortError(error: unknown): boolean {
     'name' in error &&
     (error as { name?: unknown }).name === 'AbortError'
   );
+}
+
+function createRequestAbortContext(
+  upstreamSignal: AbortSignal | null | undefined,
+  timeoutMs: number
+): { signal: AbortSignal; didTimeout: () => boolean; cleanup: () => void } {
+  const controller = new AbortController();
+  let timeoutTriggered = false;
+  const timeout = setTimeout(() => {
+    timeoutTriggered = true;
+    controller.abort();
+  }, timeoutMs);
+  const abortFromUpstream = () => controller.abort();
+
+  if (upstreamSignal?.aborted) {
+    controller.abort();
+  } else {
+    upstreamSignal?.addEventListener('abort', abortFromUpstream, { once: true });
+  }
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => timeoutTriggered,
+    cleanup: () => {
+      clearTimeout(timeout);
+      upstreamSignal?.removeEventListener('abort', abortFromUpstream);
+    }
+  };
 }
 
 async function parseJsonSafe(response: Response): Promise<unknown> {
@@ -36,58 +57,19 @@ async function parseJsonSafe(response: Response): Promise<unknown> {
   }
 }
 
-async function fetchWithTimeout(
-  url: string,
-  options: RequestInit,
-  timeoutMs: number
-): Promise<Response> {
-  const controller = new AbortController();
-  let didTimeout = false;
-  const timeout = setTimeout(() => {
-    didTimeout = true;
-    controller.abort();
-  }, timeoutMs);
-  const upstreamSignal = options.signal;
-  const abortFromUpstream = () => controller.abort();
-
-  if (upstreamSignal?.aborted) {
-    controller.abort();
-  } else {
-    upstreamSignal?.addEventListener('abort', abortFromUpstream, { once: true });
-  }
-
-  try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-  } catch (error) {
-    if (didTimeout && isAbortError(error)) {
-      throw new RequestTimeoutError();
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-    upstreamSignal?.removeEventListener('abort', abortFromUpstream);
-  }
-}
-
 export async function requestJson<T>(url: string, options: RequestOptions = {}): Promise<T> {
   const { timeoutMs = DEFAULT_TIMEOUT_MS, headers, ...rest } = options;
+  const abortContext = createRequestAbortContext(rest.signal, timeoutMs);
 
   try {
-    const response = await fetchWithTimeout(
-      url,
-      {
-        ...rest,
-        headers: {
-          Accept: 'application/json, application/problem+json',
-          ...(headers || {})
-        }
-      },
-      timeoutMs
-    );
+    const response = await fetch(url, {
+      ...rest,
+      signal: abortContext.signal,
+      headers: {
+        Accept: 'application/json, application/problem+json',
+        ...(headers || {})
+      }
+    });
 
     const payload = await parseJsonSafe(response);
 
@@ -105,7 +87,7 @@ export async function requestJson<T>(url: string, options: RequestOptions = {}):
       throw error;
     }
 
-    if (error instanceof RequestTimeoutError) {
+    if (abortContext.didTimeout() && isAbortError(error)) {
       throw new ApiError(mapUnknownError('Request timeout'));
     }
 
@@ -114,5 +96,7 @@ export async function requestJson<T>(url: string, options: RequestOptions = {}):
     }
 
     throw new ApiError(mapUnknownError(error instanceof Error ? error.message : 'Unknown network error'));
+  } finally {
+    abortContext.cleanup();
   }
 }
