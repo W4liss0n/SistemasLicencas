@@ -209,6 +209,25 @@ export async function runCommand({
   });
 }
 
+function resolveLegacyRsaEnv() {
+  const privateKey = process.env.RSA_PRIVATE_KEY;
+  const publicKey = process.env.RSA_PUBLIC_KEY;
+  const hasPrivateKey = (privateKey?.trim().length ?? 0) > 0;
+  const hasPublicKey = (publicKey?.trim().length ?? 0) > 0;
+
+  if (hasPrivateKey !== hasPublicKey) {
+    throw new Error(
+      'RSA_PRIVATE_KEY and RSA_PUBLIC_KEY must be provided together for oracle legacy RSA overrides'
+    );
+  }
+
+  return {
+    RSA_PRIVATE_KEY: hasPrivateKey ? privateKey : oracleRsaKeyPair.privateKey,
+    RSA_PUBLIC_KEY: hasPublicKey ? publicKey : oracleRsaKeyPair.publicKey,
+    RSA_KEY_ID: process.env.RSA_KEY_ID ?? 'oracle-local-rsa'
+  };
+}
+
 function buildLegacyEnv(overrides = {}) {
   return {
     DB_HOST: oracleConfig.legacy.dbHost,
@@ -221,9 +240,7 @@ function buildLegacyEnv(overrides = {}) {
     PORT: String(oracleConfig.legacy.port),
     API_VERSION: 'v1',
     NODE_ENV: 'development',
-    RSA_PRIVATE_KEY: process.env.RSA_PRIVATE_KEY ?? oracleRsaKeyPair.privateKey,
-    RSA_PUBLIC_KEY: process.env.RSA_PUBLIC_KEY ?? oracleRsaKeyPair.publicKey,
-    RSA_KEY_ID: process.env.RSA_KEY_ID ?? 'oracle-local-rsa',
+    ...resolveLegacyRsaEnv(),
     ...overrides
   };
 }
