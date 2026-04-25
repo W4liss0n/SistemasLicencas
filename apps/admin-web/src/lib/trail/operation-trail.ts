@@ -1,9 +1,10 @@
 import type { OperationTrailEntry } from '../../types/api';
+import { readSessionStorage, writeSessionStorage } from '../../app/browser-storage';
 
 const TRAIL_KEY = 'admin-web-license-trail';
 
 function readRaw(): OperationTrailEntry[] {
-  const raw = sessionStorage.getItem(TRAIL_KEY);
+  const raw = readSessionStorage(TRAIL_KEY);
   if (!raw) {
     return [];
   }
@@ -23,7 +24,7 @@ export function appendOperationTrail(entry: OperationTrailEntry): void {
     ...readRaw().filter((item) => item.licenseKey !== entry.licenseKey),
     ...next
   ];
-  sessionStorage.setItem(TRAIL_KEY, JSON.stringify(full));
+  writeSessionStorage(TRAIL_KEY, JSON.stringify(full));
 }
 
 export function readOperationTrail(licenseKey: string): OperationTrailEntry[] {

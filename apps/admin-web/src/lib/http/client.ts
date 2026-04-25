@@ -20,20 +20,48 @@ async function parseJsonSafe(response: Response): Promise<unknown> {
   }
 }
 
-export async function requestJson<T>(url: string, options: RequestOptions = {}): Promise<T> {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, headers, ...rest } = options;
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number
+): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const upstreamSignal = options.signal;
+  const abortFromUpstream = () => controller.abort();
+
+  if (upstreamSignal?.aborted) {
+    controller.abort();
+  } else {
+    upstreamSignal?.addEventListener('abort', abortFromUpstream, { once: true });
+  }
 
   try {
-    const response = await fetch(url, {
-      ...rest,
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json, application/problem+json',
-        ...(headers || {})
-      }
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
     });
+  } finally {
+    clearTimeout(timeout);
+    upstreamSignal?.removeEventListener('abort', abortFromUpstream);
+  }
+}
+
+export async function requestJson<T>(url: string, options: RequestOptions = {}): Promise<T> {
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, headers, ...rest } = options;
+
+  try {
+    const response = await fetchWithTimeout(
+      url,
+      {
+        ...rest,
+        headers: {
+          Accept: 'application/json, application/problem+json',
+          ...(headers || {})
+        }
+      },
+      timeoutMs
+    );
 
     const payload = await parseJsonSafe(response);
 
@@ -56,7 +84,5 @@ export async function requestJson<T>(url: string, options: RequestOptions = {}):
     }
 
     throw new ApiError(mapUnknownError(error instanceof Error ? error.message : 'Unknown network error'));
-  } finally {
-    clearTimeout(timeout);
   }
 }
