@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'apps/admin-web/**'
+      - 'apps/api/src/common/version/**'
       - 'scripts/gateway/**'
       - 'ops/admin-gateway/**'
       - 'docker-compose.prod.yml'
@@ -13,6 +14,7 @@ on:
   pull_request:
     paths:
       - 'apps/admin-web/**'
+      - 'apps/api/src/common/version/**'
       - 'scripts/gateway/**'
       - 'ops/admin-gateway/**'
       - 'docker-compose.prod.yml'
