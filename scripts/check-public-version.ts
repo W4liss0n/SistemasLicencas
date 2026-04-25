@@ -17,7 +17,11 @@ function main(): void {
   const { root } = resolveWorkspacePaths(__dirname);
   const openApiPath = path.join(root, '.openapi', 'openapi.v2.json');
 
-  if (shouldCheckOpenApi && existsSync(openApiPath)) {
+  if (shouldCheckOpenApi) {
+    if (!existsSync(openApiPath)) {
+      throw new Error(`Generated OpenAPI document is missing at ${openApiPath}`);
+    }
+
     const openApi = JSON.parse(readFileSync(openApiPath, 'utf8')) as OpenApiDocument;
     const openApiVersion = openApi.info?.version;
 
