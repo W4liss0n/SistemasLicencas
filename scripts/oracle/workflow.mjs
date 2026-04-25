@@ -510,6 +510,17 @@ export async function upOracle() {
     });
   });
 
+  console.log('[oracle] generating v2 Prisma Client');
+  await runWithRetries('v2 prisma generate', async () => {
+    await runCommand({
+      command: npmCmd,
+      args: ['run', 'api:prisma:generate'],
+      cwd: paths.v2Dir,
+      env: buildV2Env(),
+      label: 'v2-prisma-generate'
+    });
+  });
+
   console.log('[oracle] running v2 migrations and seed');
   await runWithRetries('v2 migrate', async () => {
     await runCommand({
