@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check public version manifests
+        run: npm run check:public-version
+
       - name: Build admin-web
         run: npm run admin-web:build
 

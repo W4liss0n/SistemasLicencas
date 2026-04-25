@@ -15,8 +15,10 @@ import { runWithTraceId } from './common/request-context/request-context';
 import { TraceIdInterceptor } from './common/interceptors/trace-id.interceptor';
 import { AppConfigService } from './config/app-config.service';
 import { MetricsService } from './observability/metrics.service';
+import { readPublicVersion } from './common/version/public-version';
 
 const requestStartTimeSymbol = Symbol('requestStartTime');
+const publicVersion = readPublicVersion(__dirname);
 
 export async function createApp(): Promise<NestFastifyApplication> {
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
@@ -106,7 +108,7 @@ export async function createApp(): Promise<NestFastifyApplication> {
   const documentConfig = new DocumentBuilder()
     .setTitle('Sistema Licencas API v2')
     .setDescription('Contract-first API for licensing runtime rewrite')
-    .setVersion('2.0.0')
+    .setVersion(publicVersion)
     .addApiKey(
       {
         type: 'apiKey',

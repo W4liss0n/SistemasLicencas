@@ -1,5 +1,6 @@
 {
     "name":  "sistema-licencas-workspace",
+    "version":  "2.0.0",
     "private":  true,
     "workspaces":  [
                        "apps/api",
@@ -10,6 +11,7 @@
                     "dev:auth":  "node scripts/dev/dev-server.mjs --auth",
                     "start:dev":  "npm run dev",
                     "test":  "npm run api:test",
+                    "check:public-version":  "npm exec --workspace=sistema-licencas-v2 -- tsx ../../scripts/check-public-version.ts",
                     "api:start":  "npm run start --workspace=sistema-licencas-v2",
                     "api:dev":  "npm run start:dev --workspace=sistema-licencas-v2",
                     "api:build":  "npm run build --workspace=sistema-licencas-v2",
@@ -40,8 +42,8 @@
                     "gateway:smoke":  "node scripts/gateway/smoke-test.mjs",
                     "check:isolation":  "node scripts/check-legacy-isolation.mjs",
                     "docs:lint":  "node scripts/lint-docs.mjs",
-                    "ci:api":  "npm run check:isolation \u0026\u0026 npm run api:typecheck \u0026\u0026 npm run api:test \u0026\u0026 npm run api:openapi:generate \u0026\u0026 npm run api:openapi:validate",
-                    "ci:admin-web":  "npm run admin-web:build \u0026\u0026 npm run admin-web:test \u0026\u0026 npm run admin-web:e2e",
+                    "ci:api":  "npm run check:public-version \u0026\u0026 npm run check:isolation \u0026\u0026 npm run api:typecheck \u0026\u0026 npm run api:test \u0026\u0026 npm run api:openapi:generate \u0026\u0026 npm run check:public-version -- --openapi \u0026\u0026 npm run api:openapi:validate",
+                    "ci:admin-web":  "npm run check:public-version \u0026\u0026 npm run admin-web:build \u0026\u0026 npm run admin-web:test \u0026\u0026 npm run admin-web:e2e",
                     "start":  "npm run api:start",
                     "typecheck":  "npm run api:typecheck",
                     "test:e2e":  "npm run api:test:e2e",

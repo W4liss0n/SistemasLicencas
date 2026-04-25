@@ -2,8 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RedisService } from '../../infra/redis/redis.service';
 import { AppConfigService } from '../../config/app-config.service';
+import { readPublicVersion } from '../../common/version/public-version';
 
 type DependencyStatus = 'up' | 'down';
+const publicVersion = readPublicVersion(__dirname);
 
 @Injectable()
 export class HealthService {
@@ -18,6 +20,7 @@ export class HealthService {
 
   async check(): Promise<{
     status: 'ok' | 'degraded';
+    version: string;
     dependencies: { database: DependencyStatus; redis: DependencyStatus };
     timestamp: string;
   }> {
@@ -40,6 +43,7 @@ export class HealthService {
 
     return {
       status: deps.database === 'up' && deps.redis === 'up' ? 'ok' : 'degraded',
+      version: publicVersion,
       dependencies: deps,
       timestamp: new Date().toISOString()
     };

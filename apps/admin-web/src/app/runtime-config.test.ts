@@ -1,5 +1,19 @@
+import { readFileSync } from 'node:fs';
+import * as path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isMutationsEnabled } from './runtime-config';
+import { getPublicVersion, isMutationsEnabled } from './runtime-config';
+
+function readWorkspacePublicVersion(): string {
+  const packageJson = JSON.parse(
+    readFileSync(path.resolve(process.cwd(), '..', '..', 'package.json'), 'utf8')
+  ) as { version?: string };
+
+  if (!packageJson.version) {
+    throw new Error('Workspace root package.json is missing version');
+  }
+
+  return packageJson.version;
+}
 
 describe('runtime-config', () => {
   afterEach(() => {
@@ -18,5 +32,9 @@ describe('runtime-config', () => {
     vi.stubEnv('VITE_ADMIN_WEB_ENABLE_MUTATIONS', 'true');
 
     expect(isMutationsEnabled()).toBe(true);
+  });
+
+  it('returns the build-time public version', () => {
+    expect(getPublicVersion()).toBe(readWorkspacePublicVersion());
   });
 });
