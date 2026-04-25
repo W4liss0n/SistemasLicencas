@@ -41,6 +41,7 @@ export const oracleConfig = {
 };
 
 const healthRequestTimeoutMs = Number(process.env.ORACLE_HEALTH_REQUEST_TIMEOUT_MS ?? '5000');
+const commandTimeoutMs = Number(process.env.ORACLE_COMMAND_TIMEOUT_MS ?? '180000');
 
 function prefixStream(stream, prefix, writer) {
   if (!stream) {
@@ -89,7 +90,8 @@ export async function runCommand({
   env,
   label,
   quiet = false,
-  allowFailure = false
+  allowFailure = false,
+  timeoutMs = commandTimeoutMs
 }) {
   const mergedEnv = { ...process.env, ...env };
   const normalizedEnv = {};
@@ -111,6 +113,31 @@ export async function runCommand({
 
     let stdout = '';
     let stderr = '';
+    let timedOut = false;
+    let forceKillTimeout;
+    const timeout =
+      Number.isFinite(timeoutMs) && timeoutMs > 0
+        ? setTimeout(() => {
+            timedOut = true;
+            if (child.exitCode === null) {
+              child.kill('SIGTERM');
+              forceKillTimeout = setTimeout(() => {
+                if (child.exitCode === null) {
+                  child.kill('SIGKILL');
+                }
+              }, 5_000);
+            }
+          }, timeoutMs)
+        : null;
+
+    const clearTimers = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      if (forceKillTimeout) {
+        clearTimeout(forceKillTimeout);
+      }
+    };
 
     child.stdout?.on('data', (chunk) => {
       const text = chunk.toString();
@@ -129,10 +156,20 @@ export async function runCommand({
     });
 
     child.once('error', (error) => {
+      clearTimers();
       rejectPromise(error);
     });
 
     child.once('close', (code) => {
+      clearTimers();
+      if (timedOut) {
+        const error = new Error(
+          `${label} timed out after ${timeoutMs}ms\n${stderr || stdout || '(no output)'}`
+        );
+        rejectPromise(error);
+        return;
+      }
+
       if (code !== 0 && !allowFailure) {
         const error = new Error(
           `${label} failed with exit code ${code}\n${stderr || stdout || '(no output)'}`
