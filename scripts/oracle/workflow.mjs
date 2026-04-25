@@ -40,6 +40,8 @@ export const oracleConfig = {
   }
 };
 
+const healthRequestTimeoutMs = Number(process.env.ORACLE_HEALTH_REQUEST_TIMEOUT_MS ?? '5000');
+
 function prefixStream(stream, prefix, writer) {
   if (!stream) {
     return;
@@ -272,14 +274,19 @@ async function waitForHttp(url, timeoutMs, label) {
   let lastError = 'unknown';
 
   while (Date.now() - start < timeoutMs) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), healthRequestTimeoutMs);
+
     try {
-      const response = await fetch(url, { method: 'GET' });
+      const response = await fetch(url, { method: 'GET', signal: controller.signal });
       if (response.status < 500) {
         return;
       }
       lastError = `status ${response.status}`;
     } catch (error) {
       lastError = String(error);
+    } finally {
+      clearTimeout(timeout);
     }
 
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 1000));
