@@ -2,6 +2,16 @@
 
 Workspace canonico do rewrite `sistema-licencas-v2`.
 
+## Runtime local
+
+Em PowerShell, prefira ativar o Node 22 local do workspace antes dos comandos do projeto:
+
+```powershell
+. .\scripts\dev\use-workspace-node.ps1
+node -v
+npm -v
+```
+
 ## Estrutura
 
 - `apps/api`: backend NestJS + Prisma.
