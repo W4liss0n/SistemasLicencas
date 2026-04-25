@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { generateKeyPairSync } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import net from 'node:net';
 import { dirname, resolve } from 'node:path';
@@ -39,6 +40,30 @@ export const oracleConfig = {
     redisPort: 56380
   }
 };
+
+function readPositiveDurationMs(envName, defaultMs) {
+  const rawValue = process.env[envName]?.trim();
+  if (!rawValue) {
+    return defaultMs;
+  }
+
+  const parsedValue = Number(rawValue);
+  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : defaultMs;
+}
+
+const healthRequestTimeoutMs = readPositiveDurationMs('ORACLE_HEALTH_REQUEST_TIMEOUT_MS', 5_000);
+const commandTimeoutMs = readPositiveDurationMs('ORACLE_COMMAND_TIMEOUT_MS', 180_000);
+const oracleRsaKeyPair = generateKeyPairSync('rsa', {
+  modulusLength: 2048,
+  publicKeyEncoding: {
+    type: 'spki',
+    format: 'pem'
+  },
+  privateKeyEncoding: {
+    type: 'pkcs8',
+    format: 'pem'
+  }
+});
 
 function prefixStream(stream, prefix, writer) {
   if (!stream) {
@@ -87,7 +112,8 @@ export async function runCommand({
   env,
   label,
   quiet = false,
-  allowFailure = false
+  allowFailure = false,
+  timeoutMs = commandTimeoutMs
 }) {
   const mergedEnv = { ...process.env, ...env };
   const normalizedEnv = {};
@@ -109,6 +135,31 @@ export async function runCommand({
 
     let stdout = '';
     let stderr = '';
+    let timedOut = false;
+    let forceKillTimeout;
+    const timeout =
+      Number.isFinite(timeoutMs) && timeoutMs > 0
+        ? setTimeout(() => {
+            timedOut = true;
+            if (child.exitCode === null) {
+              child.kill('SIGTERM');
+              forceKillTimeout = setTimeout(() => {
+                if (child.exitCode === null) {
+                  child.kill('SIGKILL');
+                }
+              }, 5_000);
+            }
+          }, timeoutMs)
+        : null;
+
+    const clearTimers = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      if (forceKillTimeout) {
+        clearTimeout(forceKillTimeout);
+      }
+    };
 
     child.stdout?.on('data', (chunk) => {
       const text = chunk.toString();
@@ -127,10 +178,20 @@ export async function runCommand({
     });
 
     child.once('error', (error) => {
+      clearTimers();
       rejectPromise(error);
     });
 
     child.once('close', (code) => {
+      clearTimers();
+      if (timedOut) {
+        const error = new Error(
+          `${label} timed out after ${timeoutMs}ms\n${stderr || stdout || '(no output)'}`
+        );
+        rejectPromise(error);
+        return;
+      }
+
       if (code !== 0 && !allowFailure) {
         const error = new Error(
           `${label} failed with exit code ${code}\n${stderr || stdout || '(no output)'}`
@@ -148,6 +209,25 @@ export async function runCommand({
   });
 }
 
+function resolveLegacyRsaEnv() {
+  const privateKey = process.env.RSA_PRIVATE_KEY;
+  const publicKey = process.env.RSA_PUBLIC_KEY;
+  const hasPrivateKey = (privateKey?.trim().length ?? 0) > 0;
+  const hasPublicKey = (publicKey?.trim().length ?? 0) > 0;
+
+  if (hasPrivateKey !== hasPublicKey) {
+    throw new Error(
+      'RSA_PRIVATE_KEY and RSA_PUBLIC_KEY must be provided together for oracle legacy RSA overrides'
+    );
+  }
+
+  return {
+    RSA_PRIVATE_KEY: hasPrivateKey ? privateKey : oracleRsaKeyPair.privateKey,
+    RSA_PUBLIC_KEY: hasPublicKey ? publicKey : oracleRsaKeyPair.publicKey,
+    RSA_KEY_ID: process.env.RSA_KEY_ID ?? 'oracle-local-rsa'
+  };
+}
+
 function buildLegacyEnv(overrides = {}) {
   return {
     DB_HOST: oracleConfig.legacy.dbHost,
@@ -160,6 +240,7 @@ function buildLegacyEnv(overrides = {}) {
     PORT: String(oracleConfig.legacy.port),
     API_VERSION: 'v1',
     NODE_ENV: 'development',
+    ...resolveLegacyRsaEnv(),
     ...overrides
   };
 }
@@ -272,14 +353,19 @@ async function waitForHttp(url, timeoutMs, label) {
   let lastError = 'unknown';
 
   while (Date.now() - start < timeoutMs) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), healthRequestTimeoutMs);
+
     try {
-      const response = await fetch(url, { method: 'GET' });
+      const response = await fetch(url, { method: 'GET', signal: controller.signal });
       if (response.status < 500) {
         return;
       }
       lastError = `status ${response.status}`;
     } catch (error) {
       lastError = String(error);
+    } finally {
+      clearTimeout(timeout);
     }
 
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 1000));
@@ -510,6 +596,17 @@ export async function upOracle() {
     });
   });
 
+  console.log('[oracle] generating v2 Prisma Client');
+  await runWithRetries('v2 prisma generate', async () => {
+    await runCommand({
+      command: npmCmd,
+      args: ['run', 'api:prisma:generate'],
+      cwd: paths.v2Dir,
+      env: buildV2Env(),
+      label: 'v2-prisma-generate'
+    });
+  });
+
   console.log('[oracle] running v2 migrations and seed');
   await runWithRetries('v2 migrate', async () => {
     await runCommand({
@@ -580,17 +677,25 @@ async function stopServer(child, label) {
   }
 
   await new Promise((resolvePromise) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      clearTimeout(maxWait);
+      resolvePromise();
+    };
     const timeout = setTimeout(() => {
       if (child.exitCode === null) {
         child.kill('SIGKILL');
       }
     }, 5_000);
+    const maxWait = setTimeout(finish, 10_000);
 
-    child.once('close', () => {
-      clearTimeout(timeout);
-      resolvePromise();
-    });
-
+    child.once('close', finish);
+    child.once('error', finish);
     child.kill('SIGTERM');
   });
 }
@@ -662,8 +767,10 @@ export async function runOracle() {
 
     console.log('[oracle] compatibility runner finished successfully');
   } finally {
-    await stopServer(legacyServer, 'legacy-api');
-    await stopServer(v2Server, 'v2-api');
+    await Promise.allSettled([
+      stopServer(legacyServer, 'legacy-api'),
+      stopServer(v2Server, 'v2-api')
+    ]);
   }
 }
 
