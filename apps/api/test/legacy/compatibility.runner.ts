@@ -57,6 +57,7 @@ const fixtures = {
 
 const unknownLicense = 'LIC-ZZZZ-ZZZZ-ZZZZ-ZZZZ';
 const runKeySuffix = Date.now().toString(36);
+const requestTimeoutMs = Number(process.env.COMPAT_HTTP_TIMEOUT_MS ?? '15000');
 
 function scopedIdempotencyKey(seed: string): string {
   return `${seed}-${runKeySuffix}`;
@@ -162,8 +163,11 @@ function classifyOutcome(result: HttpResult): Outcome {
 }
 
 async function requestJson(url: string, options: RequestInit): Promise<HttpResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+
   try {
-    const response = await fetch(url, options);
+    const response = await fetch(url, { ...options, signal: controller.signal });
     const body = (await response.json().catch(() => ({}))) as JsonObject;
     return {
       status: response.status,
@@ -176,6 +180,8 @@ async function requestJson(url: string, options: RequestInit): Promise<HttpResul
       body: {},
       error: String(error)
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

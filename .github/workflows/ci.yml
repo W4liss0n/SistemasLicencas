@@ -65,6 +65,7 @@ jobs:
 
   oracle-compat:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: api
     steps:
       - uses: actions/checkout@v4
