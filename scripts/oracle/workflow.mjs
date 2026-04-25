@@ -41,8 +41,18 @@ export const oracleConfig = {
   }
 };
 
-const healthRequestTimeoutMs = Number(process.env.ORACLE_HEALTH_REQUEST_TIMEOUT_MS ?? '5000');
-const commandTimeoutMs = Number(process.env.ORACLE_COMMAND_TIMEOUT_MS ?? '180000');
+function readPositiveDurationMs(envName, defaultMs) {
+  const rawValue = process.env[envName]?.trim();
+  if (!rawValue) {
+    return defaultMs;
+  }
+
+  const parsedValue = Number(rawValue);
+  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : defaultMs;
+}
+
+const healthRequestTimeoutMs = readPositiveDurationMs('ORACLE_HEALTH_REQUEST_TIMEOUT_MS', 5_000);
+const commandTimeoutMs = readPositiveDurationMs('ORACLE_COMMAND_TIMEOUT_MS', 180_000);
 const oracleRsaKeyPair = generateKeyPairSync('rsa', {
   modulusLength: 2048,
   publicKeyEncoding: {

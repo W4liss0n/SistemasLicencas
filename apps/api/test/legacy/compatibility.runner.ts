@@ -57,7 +57,18 @@ const fixtures = {
 
 const unknownLicense = 'LIC-ZZZZ-ZZZZ-ZZZZ-ZZZZ';
 const runKeySuffix = Date.now().toString(36);
-const requestTimeoutMs = Number(process.env.COMPAT_HTTP_TIMEOUT_MS ?? '15000');
+
+function readPositiveDurationMs(envName: string, defaultMs: number): number {
+  const rawValue = process.env[envName]?.trim();
+  if (!rawValue) {
+    return defaultMs;
+  }
+
+  const parsedValue = Number(rawValue);
+  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : defaultMs;
+}
+
+const requestTimeoutMs = readPositiveDurationMs('COMPAT_HTTP_TIMEOUT_MS', 15_000);
 
 function scopedIdempotencyKey(seed: string): string {
   return `${seed}-${runKeySuffix}`;
