@@ -7,6 +7,22 @@ type RequestOptions = RequestInit & {
   timeoutMs?: number;
 };
 
+class RequestTimeoutError extends Error {
+  constructor() {
+    super('Request timeout');
+    this.name = 'RequestTimeoutError';
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name?: unknown }).name === 'AbortError'
+  );
+}
+
 async function parseJsonSafe(response: Response): Promise<unknown> {
   const text = await response.text();
   if (!text) {
@@ -26,7 +42,11 @@ async function fetchWithTimeout(
   timeoutMs: number
 ): Promise<Response> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let didTimeout = false;
+  const timeout = setTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, timeoutMs);
   const upstreamSignal = options.signal;
   const abortFromUpstream = () => controller.abort();
 
@@ -41,6 +61,12 @@ async function fetchWithTimeout(
       ...options,
       signal: controller.signal
     });
+  } catch (error) {
+    if (didTimeout && isAbortError(error)) {
+      throw new RequestTimeoutError();
+    }
+
+    throw error;
   } finally {
     clearTimeout(timeout);
     upstreamSignal?.removeEventListener('abort', abortFromUpstream);
@@ -79,8 +105,12 @@ export async function requestJson<T>(url: string, options: RequestOptions = {}):
       throw error;
     }
 
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (error instanceof RequestTimeoutError) {
       throw new ApiError(mapUnknownError('Request timeout'));
+    }
+
+    if (isAbortError(error)) {
+      throw error;
     }
 
     throw new ApiError(mapUnknownError(error instanceof Error ? error.message : 'Unknown network error'));
