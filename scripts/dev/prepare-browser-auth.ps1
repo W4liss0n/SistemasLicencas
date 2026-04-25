@@ -6,6 +6,11 @@ param(
 $ErrorActionPreference = 'Stop'
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $workspace = Resolve-Path (Join-Path $scriptDir '..\..')
+
+. (Join-Path $scriptDir 'node-runtime.ps1')
+$node = Get-WorkspaceNodePath
+$npm = Get-WorkspaceNpmPath
+
 Push-Location $workspace
 
 function Wait-HttpReady {
@@ -30,6 +35,7 @@ function Wait-HttpReady {
 
 try {
   Write-Host "[prepare-auth] workspace: $(Get-Location)"
+  Use-WorkspaceNode | Out-Host
   Write-Host "[prepare-auth] stopping previous auth processes (if any)..."
   & (Join-Path $scriptDir 'stop-browser-auth.ps1') | Out-Host
   Start-Sleep -Milliseconds 300
@@ -40,10 +46,10 @@ try {
   }
 
   Write-Host '[prepare-auth] applying migrations...'
-  npm run api:prisma:migrate:deploy | Out-Host
+  & $npm run api:prisma:migrate:deploy | Out-Host
 
   Write-Host '[prepare-auth] seeding canonical data...'
-  npm run api:prisma:seed | Out-Host
+  & $npm run api:prisma:seed | Out-Host
 
   New-Item -ItemType Directory -Force -Path '.tmp' | Out-Null
   $runId = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -54,13 +60,13 @@ try {
 
   if (-not $SkipMockOidc) {
     Write-Host '[prepare-auth] starting mock OIDC provider...'
-    $mock = Start-Process -FilePath node -ArgumentList 'scripts/dev/mock-oidc-provider.mjs' -WorkingDirectory '.' -PassThru -RedirectStandardOutput $mockOut -RedirectStandardError $mockErr
+    $mock = Start-Process -FilePath $node -ArgumentList 'scripts/dev/mock-oidc-provider.mjs' -WorkingDirectory '.' -PassThru -RedirectStandardOutput $mockOut -RedirectStandardError $mockErr
   } else {
     Write-Host '[prepare-auth] mock OIDC disabled (using external issuer from .env)'
   }
 
   Write-Host '[prepare-auth] starting backend API...'
-  $api = Start-Process -FilePath cmd.exe -ArgumentList '/c', 'npm run api:dev' -WorkingDirectory '.' -PassThru -RedirectStandardOutput $apiOut -RedirectStandardError $apiErr
+  $api = Start-Process -FilePath $npm -ArgumentList 'run', 'api:dev' -WorkingDirectory '.' -PassThru -RedirectStandardOutput $apiOut -RedirectStandardError $apiErr
 
   if (-not $SkipMockOidc) {
     Wait-HttpReady -Url 'http://127.0.0.1:4010/.well-known/openid-configuration' -TimeoutSeconds 30

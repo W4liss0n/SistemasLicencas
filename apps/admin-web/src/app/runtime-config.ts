@@ -24,3 +24,7 @@ export function isMutationsEnabled(): boolean {
 
   return import.meta.env.VITE_ADMIN_WEB_ENABLE_MUTATIONS === 'true';
 }
+
+export function getPublicVersion(): string {
+  return __SYSTEM_PUBLIC_VERSION__;
+}

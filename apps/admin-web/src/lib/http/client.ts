@@ -7,6 +7,43 @@ type RequestOptions = RequestInit & {
   timeoutMs?: number;
 };
 
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name?: unknown }).name === 'AbortError'
+  );
+}
+
+function createRequestAbortContext(
+  upstreamSignal: AbortSignal | null | undefined,
+  timeoutMs: number
+): { signal: AbortSignal; didTimeout: () => boolean; cleanup: () => void } {
+  const controller = new AbortController();
+  let timeoutTriggered = false;
+  const timeout = setTimeout(() => {
+    timeoutTriggered = true;
+    controller.abort();
+  }, timeoutMs);
+  const abortFromUpstream = () => controller.abort();
+
+  if (upstreamSignal?.aborted) {
+    controller.abort();
+  } else {
+    upstreamSignal?.addEventListener('abort', abortFromUpstream, { once: true });
+  }
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => timeoutTriggered,
+    cleanup: () => {
+      clearTimeout(timeout);
+      upstreamSignal?.removeEventListener('abort', abortFromUpstream);
+    }
+  };
+}
+
 async function parseJsonSafe(response: Response): Promise<unknown> {
   const text = await response.text();
   if (!text) {
@@ -22,13 +59,12 @@ async function parseJsonSafe(response: Response): Promise<unknown> {
 
 export async function requestJson<T>(url: string, options: RequestOptions = {}): Promise<T> {
   const { timeoutMs = DEFAULT_TIMEOUT_MS, headers, ...rest } = options;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const abortContext = createRequestAbortContext(rest.signal, timeoutMs);
 
   try {
     const response = await fetch(url, {
       ...rest,
-      signal: controller.signal,
+      signal: abortContext.signal,
       headers: {
         Accept: 'application/json, application/problem+json',
         ...(headers || {})
@@ -51,12 +87,16 @@ export async function requestJson<T>(url: string, options: RequestOptions = {}):
       throw error;
     }
 
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (abortContext.didTimeout() && isAbortError(error)) {
       throw new ApiError(mapUnknownError('Request timeout'));
+    }
+
+    if (isAbortError(error)) {
+      throw error;
     }
 
     throw new ApiError(mapUnknownError(error instanceof Error ? error.message : 'Unknown network error'));
   } finally {
-    clearTimeout(timeout);
+    abortContext.cleanup();
   }
 }

@@ -1,8 +1,10 @@
 import request = require('supertest');
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { createApp } from '../../src/bootstrap';
+import { readPublicVersion } from '../../src/common/version/public-version';
 
 const PROGRAM_ID = 'demo-program';
+const PUBLIC_VERSION = readPublicVersion(__dirname);
 
 const fingerprintA = {
   raw_components: {
@@ -35,6 +37,7 @@ describe('API v2 e2e', () => {
     const response = await request(app.getHttpServer()).get('/api/v2/health').expect(200);
 
     expect(response.body).toHaveProperty('status');
+    expect(response.body.version).toBe(PUBLIC_VERSION);
     expect(response.body).toHaveProperty('dependencies');
     expect(response.body).toHaveProperty('trace_id');
     expect(response.headers['x-request-id']).toBeDefined();

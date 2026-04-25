@@ -11,6 +11,7 @@ export class HealthController {
   @ApiOperation({ summary: 'Health check for API v2' })
   async health(): Promise<{
     status: 'ok' | 'degraded';
+    version: string;
     dependencies: { database: 'up' | 'down'; redis: 'up' | 'down' };
     timestamp: string;
   }> {

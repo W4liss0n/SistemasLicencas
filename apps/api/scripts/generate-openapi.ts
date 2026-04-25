@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { readPublicVersion } from '../src/common/version/public-version';
 
 function ensureEnvDefaults(): void {
   const defaults: Record<string, string> = {
@@ -36,17 +37,20 @@ function ensureEnvDefaults(): void {
   }
 }
 
-async function run(): Promise<void> {
+export function buildOpenApiDocumentConfig(publicVersion = readPublicVersion(__dirname)) {
+  return new DocumentBuilder()
+    .setTitle('Sistema Licencas API v2')
+    .setDescription('Contract-first API for licensing runtime rewrite')
+    .setVersion(publicVersion)
+    .build();
+}
+
+export async function run(): Promise<void> {
   ensureEnvDefaults();
   const { createApp } = await import('../src/bootstrap');
   const app = await createApp();
 
-  const config = new DocumentBuilder()
-    .setTitle('Sistema Licencas API v2')
-    .setDescription('Contract-first API for licensing runtime rewrite')
-    .setVersion('2.0.0')
-    .build();
-
+  const config = buildOpenApiDocumentConfig();
   const document = SwaggerModule.createDocument(app, config);
   document.openapi = '3.1.0';
 
@@ -57,8 +61,10 @@ async function run(): Promise<void> {
   await app.close();
 }
 
-run().catch((error) => {
-  // eslint-disable-next-line no-console
-  console.error('Failed to generate OpenAPI document', error);
-  process.exit(1);
-});
+if (require.main === module) {
+  run().catch((error) => {
+    // eslint-disable-next-line no-console
+    console.error('Failed to generate OpenAPI document', error);
+    process.exit(1);
+  });
+}

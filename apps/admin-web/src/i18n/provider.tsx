@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { readLocalStorage, writeLocalStorage } from '../app/browser-storage';
 import { DEFAULT_LOCALE, I18N_STORAGE_KEY, messagesByLocale, type AppLocale } from './messages';
 
 type TranslateParams = Record<string, string | number>;
@@ -21,11 +22,7 @@ function interpolate(template: string, params?: TranslateParams): string {
 }
 
 function resolveStoredLocale(): AppLocale {
-  if (typeof window === 'undefined') {
-    return DEFAULT_LOCALE;
-  }
-
-  const storedLocale = window.localStorage.getItem(I18N_STORAGE_KEY);
+  const storedLocale = readLocalStorage(I18N_STORAGE_KEY);
   if (storedLocale && storedLocale in messagesByLocale) {
     return storedLocale as AppLocale;
   }
@@ -42,9 +39,7 @@ export function I18nProvider({ children }: Props) {
 
   const setLocale = useCallback((nextLocale: AppLocale) => {
     setLocaleState(nextLocale);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(I18N_STORAGE_KEY, nextLocale);
-    }
+    writeLocalStorage(I18N_STORAGE_KEY, nextLocale);
   }, []);
 
   const t = useCallback(

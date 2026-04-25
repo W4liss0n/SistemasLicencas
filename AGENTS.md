@@ -32,6 +32,13 @@
 - Quando houver vários caminhos, prefira o workflow já adotado pela CI.
 - Se os comandos não existirem, explicite a lacuna e proponha o menor conjunto necessário; não invente um workflow fictício.
 
+## Runtime local
+
+- Para comandos Node.js/NPM deste workspace, prefira o runtime local em `%LOCALAPPDATA%\\Programs\\node-v22.22.2-win-x64`, alinhado com a CI em Node 22.
+- Em PowerShell, prepend `C:\\Users\\Walisson\\AppData\\Local\\Programs\\node-v22.22.2-win-x64` ao `PATH` da sessao atual antes de rodar os comandos oficiais do projeto, ou invoque `node.exe` e `npm.cmd` diretamente nesse diretorio.
+- Nao faca downgrade, uninstall ou troca do Node global sem confirmacao explicita e privilegios administrativos.
+- Se o runtime local nao existir, declare a limitacao em vez de assumir que o Node global e equivalente ao ambiente oficial.
+
 ## Versionamento
 
 - Use SemVer: `MAJOR.MINOR.PATCH`, salvo regra explícita diferente do repositório.

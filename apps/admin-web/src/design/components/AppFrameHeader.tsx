@@ -1,5 +1,6 @@
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import { Button, Chip, Paper, Stack, Typography } from '@mui/material';
+import { getPublicVersion } from '../../app/runtime-config';
 import { useI18n } from '../../i18n';
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
 
 export function AppFrameHeader({ title, subtitle, operator, nowLabel, onSignOut }: Props) {
   const { t } = useI18n();
+  const publicVersion = getPublicVersion();
 
   return (
     <Paper
@@ -52,6 +54,7 @@ export function AppFrameHeader({ title, subtitle, operator, nowLabel, onSignOut 
             justifyContent={{ xs: 'flex-start', xl: 'flex-end' }}
           >
             <Chip label={operator} size="small" className="mono" />
+            <Chip label={`v${publicVersion}`} size="small" className="mono" />
             <Chip label={t('frame.updatedAt', { value: nowLabel })} size="small" />
             <Button
               size="small"

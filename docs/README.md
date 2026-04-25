@@ -5,6 +5,7 @@ Data de atualizacao: 2026-03-05
 ## Escopo canonico
 Esta documentacao descreve o runtime publico do rewrite `sistema-licencas-v2`.
 O legado `sistema-licencas` permanece apenas para compatibilidade e nao define contrato novo.
+A versao publica canonica do sistema e a chave `version` do `package.json` raiz do workspace.
 
 ## Endpoints publicos v2
 ### Licensing runtime
@@ -66,6 +67,7 @@ O legado `sistema-licencas` permanece apenas para compatibilidade e nao define c
 
 ## Pre-requisitos
 - Node.js com `npm` disponivel para backend e `admin-web`.
+- Em PowerShell neste workspace, prefira ativar o runtime local com `. .\scripts\dev\use-workspace-node.ps1` para alinhar os comandos manuais com o Node 22 da CI.
 - PostgreSQL e Redis locais, ou stack local via Docker Compose.
 - Docker daemon ativo para:
   - stack local (`docker compose up`) opcional;
@@ -116,6 +118,7 @@ Variaveis obrigatorias e defaults:
 ## Fluxo rapido local
 ```bash
 cd SistemaLicencas
+. .\scripts\dev\use-workspace-node.ps1
 npm install
 cp apps/api/.env.example apps/api/.env
 npm run prisma:migrate:dev
