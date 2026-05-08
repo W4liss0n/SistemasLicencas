@@ -132,6 +132,20 @@ describe('validateEnv', () => {
     ).toThrow('Invalid environment configuration');
   });
 
+  it('allows blank Auth0 issuer and audience when admin auth is disabled', () => {
+    const env = validateEnv(
+      baseProductionEnv({
+        ADMIN_AUTH_ENABLED: 'false',
+        ADMIN_AUTH_ISSUER_URL: '',
+        ADMIN_AUTH_AUDIENCE: ''
+      })
+    );
+
+    expect(env.ADMIN_AUTH_ENABLED).toBe(false);
+    expect(env.ADMIN_AUTH_ISSUER_URL).toBeUndefined();
+    expect(env.ADMIN_AUTH_AUDIENCE).toBeUndefined();
+  });
+
   it('parses admin auth config when enabled', () => {
     const env = validateEnv(
       baseProductionEnv({

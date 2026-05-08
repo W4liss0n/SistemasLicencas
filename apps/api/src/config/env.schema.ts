@@ -13,6 +13,22 @@ const booleanEnv = z.preprocess((value) => {
   return value;
 }, z.boolean());
 
+const optionalUrlEnv = z.preprocess((value) => {
+  if (typeof value === 'string' && value.trim().length === 0) {
+    return undefined;
+  }
+
+  return value;
+}, z.string().url().optional());
+
+const optionalNonEmptyStringEnv = z.preprocess((value) => {
+  if (typeof value === 'string' && value.trim().length === 0) {
+    return undefined;
+  }
+
+  return value;
+}, z.string().min(1).optional());
+
 const corsAllowedOriginsEnv = z
   .preprocess((value) => {
     if (typeof value !== 'string') {
@@ -95,8 +111,8 @@ export const envSchema = z.object({
   OIDC_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
   OIDC_CLOCK_SKEW_SECONDS: z.coerce.number().int().nonnegative().default(120),
   ADMIN_AUTH_ENABLED: booleanEnv.default(false),
-  ADMIN_AUTH_ISSUER_URL: z.string().url().optional(),
-  ADMIN_AUTH_AUDIENCE: z.string().min(1).optional(),
+  ADMIN_AUTH_ISSUER_URL: optionalUrlEnv,
+  ADMIN_AUTH_AUDIENCE: optionalNonEmptyStringEnv,
   ADMIN_AUTH_REQUIRED_SCOPES: z.string().min(1).default('admin:access'),
   ADMIN_AUTH_CLOCK_TOLERANCE_SECONDS: z.coerce.number().int().nonnegative().default(60),
   AUTH_PASSWORD_PEPPER: z.string().min(16).default('change-me-auth-pepper-please'),
