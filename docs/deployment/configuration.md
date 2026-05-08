@@ -54,6 +54,7 @@ Nota CORS:
 Nota Auth0 Admin:
 - `ADMIN_AUTH_ENABLED=false` preserva o fluxo atual com Basic Auth + chave interna no gateway;
 - com `ADMIN_AUTH_ENABLED=true`, o gateway continua injetando `X-Internal-Api-Key`, mas a API tambem exige `Authorization: Bearer <access_token>`;
+- para evitar conflito com Basic Auth, o browser envia o token em `X-Admin-Authorization` e o gateway reescreve esse header para `Authorization` apenas na chamada interna para a API;
 - o access token deve ser JWT RS256 emitido pelo `ADMIN_AUTH_ISSUER_URL`, com `aud` igual a `ADMIN_AUTH_AUDIENCE` e scope/permissao `admin:access` por padrao;
 - para Auth0 RBAC, habilite RBAC na API e atribua a permissao `admin:access` ao operador ou role.
 

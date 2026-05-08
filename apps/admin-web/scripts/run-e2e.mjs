@@ -81,12 +81,16 @@ async function stopServer(serverProcess) {
 
 async function main() {
   let serverProcess = null;
+  const e2eEnv = {
+    ...process.env,
+    VITE_ADMIN_AUTH_ENABLED: 'false'
+  };
   const serverAlreadyRunning = await isServerReady();
 
   if (!serverAlreadyRunning) {
     serverProcess = spawn(process.execPath, [viteBin, '--host', '127.0.0.1', '--port', '4173'], {
       cwd: appRoot,
-      env: process.env,
+      env: e2eEnv,
       stdio: 'inherit',
       windowsHide: true
     });
@@ -95,7 +99,7 @@ async function main() {
 
   try {
     const exitCode = await runChild(process.execPath, [playwrightCli, 'test', ...process.argv.slice(2)], {
-      ...process.env,
+      ...e2eEnv,
       ADMIN_WEB_E2E_EXTERNAL_SERVER: 'true'
     });
     process.exitCode = exitCode;

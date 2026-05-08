@@ -20,7 +20,7 @@ Notas:
 - `ADMIN_INTERNAL_API_KEY` e lida apenas pelo servidor Vite (proxy), nunca pelo browser.
 - As chamadas do frontend usam exclusivamente `/admin-api/*`.
 - Para producao em container, a flag de mutacao usa runtime config em `config.js` via `ADMIN_WEB_ENABLE_MUTATIONS=true|false`.
-- Quando `ADMIN_AUTH_ENABLED=true`, o login usa Auth0 Authorization Code + PKCE e envia o access token como `Authorization: Bearer`.
+- Quando `ADMIN_AUTH_ENABLED=true`, o login usa Auth0 Authorization Code + PKCE. O browser envia o token em `X-Admin-Authorization` para nao conflitar com Basic Auth; o proxy repassa para a API como `Authorization: Bearer`.
 
 ## Comandos
 

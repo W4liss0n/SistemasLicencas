@@ -83,7 +83,7 @@ describe('requestJson', () => {
     });
   });
 
-  it('sends Auth0 bearer token when admin auth is enabled', async () => {
+  it('sends Auth0 bearer token through the admin proxy header when admin auth is enabled', async () => {
     window.__ADMIN_WEB_CONFIG__ = {
       adminAuthEnabled: true,
       adminAuthIssuerUrl: 'https://tenant.example.auth0.com/',
@@ -112,7 +112,8 @@ describe('requestJson', () => {
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.headers).toMatchObject({
-      Authorization: 'Bearer admin-token'
+      'X-Admin-Authorization': 'Bearer admin-token'
     });
+    expect(init.headers).not.toHaveProperty('Authorization');
   });
 });

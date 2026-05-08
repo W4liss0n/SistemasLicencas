@@ -3,6 +3,7 @@ import { mapProblemDetails, mapUnknownError } from './problem-mapper';
 import { getAdminAuthAccessToken, isAdminAuthEnabled } from '../../app/admin-auth';
 
 const DEFAULT_TIMEOUT_MS = 8_000;
+const ADMIN_AUTH_FORWARD_HEADER = 'X-Admin-Authorization';
 
 type RequestOptions = RequestInit & {
   timeoutMs?: number;
@@ -69,7 +70,7 @@ export async function requestJson<T>(url: string, options: RequestOptions = {}):
       signal: abortContext.signal,
       headers: {
         Accept: 'application/json, application/problem+json',
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        ...(authToken ? { [ADMIN_AUTH_FORWARD_HEADER]: `Bearer ${authToken}` } : {}),
         ...(headers || {})
       }
     });

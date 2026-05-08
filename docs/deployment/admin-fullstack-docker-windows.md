@@ -89,7 +89,7 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml ps
 2. `GET /api/v2/health` deve responder `200` sem Basic Auth.
 3. `GET /api/v2/internal/admin/*` deve responder `403`.
 4. `GET /admin-api/*` com Basic Auth deve funcionar.
-5. Se `ADMIN_AUTH_ENABLED=true`, login pelo Auth0 deve concluir e `/admin-api/*` deve receber `Authorization: Bearer`.
+5. Se `ADMIN_AUTH_ENABLED=true`, login pelo Auth0 deve concluir e `/admin-api/*` deve enviar `X-Admin-Authorization`, que o gateway repassa para a API como `Authorization: Bearer`.
 
 Smoke script:
 ```powershell
