@@ -6,6 +6,9 @@
 | `DATABASE_URL` | URL do PostgreSQL |
 | `REDIS_URL` | URL do Redis |
 | `JWT_SECRET` | Segredo para tokens internos |
+| `ACCESS_JWT_SECRET` | Segredo para tokens de acesso; em producao nao pode ficar com placeholder |
+| `REFRESH_JWT_SECRET` | Segredo para refresh tokens; em producao nao pode ficar com placeholder |
+| `AUTH_PASSWORD_PEPPER` | Pepper de credenciais; em producao nao pode ficar com placeholder |
 | `CORS_ALLOWED_ORIGINS` | Origens HTTPS autorizadas para CORS em producao |
 
 ## Variaveis com default
@@ -14,7 +17,7 @@
 | `NODE_ENV` | `development` | Ambiente |
 | `PORT` | `3001` | Porta HTTP |
 | `API_PREFIX` | `/api/v2` | Prefixo global |
-| `AUTH_PASSWORD_PEPPER` | `change-me-auth-pepper-please` | Pepper da verificacao de senha |
+| `AUTH_PASSWORD_PEPPER` | `change-me-auth-pepper-please` | Pepper da verificacao de senha em dev/test; obrigatorio trocar em producao |
 | `REQUEST_TIMEOUT_MS` | `3000` | Timeout global de request |
 | `IDEMPOTENCY_TTL_HOURS` | `24` | Janela de replay idempotente |
 | `LICENSE_ENGINE_STRATEGY` | `auto` | Seleciona engine (`auto`, `fake`, `prisma`) |
@@ -113,6 +116,9 @@ Variaveis esperadas (base: `.env.prod.example`):
 - `CF_ZONE_ID`
 - `CF_RECORD_NAME`
 - `JWT_SECRET`
+- `ACCESS_JWT_SECRET`
+- `REFRESH_JWT_SECRET`
+- `AUTH_PASSWORD_PEPPER`
 - `DATABASE_URL`
 - `REDIS_URL`
 

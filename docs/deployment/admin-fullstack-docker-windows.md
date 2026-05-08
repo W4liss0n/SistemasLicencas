@@ -35,6 +35,9 @@ Ajustar obrigatoriamente no `.env.prod`:
 - `POSTGRES_PASSWORD=<senha-forte-do-postgres>`
 - `DATABASE_URL=postgresql://postgres:<mesma-senha-do-postgres>@postgres:5432/sistema_licencas_v2`
 - `JWT_SECRET=<segredo-forte>`
+- `ACCESS_JWT_SECRET=<segredo-forte-para-access-token>`
+- `REFRESH_JWT_SECRET=<segredo-forte-para-refresh-token>`
+- `AUTH_PASSWORD_PEPPER=<pepper-forte-para-credenciais>`
 - `INTERNAL_ADMIN_API_KEYS=<chave-interna-forte>`
 - `ADMIN_INTERNAL_API_KEY=<mesma-chave-interna-forte>`
 - `CORS_ALLOWED_ORIGINS=https://admin.seu-dominio.com`
@@ -125,6 +128,7 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml down
 
 ## Checklist de seguranca minima
 - Nao usar `dev-internal-admin-key` em producao.
+- Trocar todos os valores `change-me-*` de segredos antes de subir a API.
 - Nao manter `postgres` como senha do banco em producao.
 - Manter `CORS_ALLOWED_ORIGINS` restrito ao dominio HTTPS publicado.
 - Nao versionar `.env.prod`, `.htpasswd`, certificados.
