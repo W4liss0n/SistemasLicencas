@@ -6,6 +6,7 @@
 | `DATABASE_URL` | URL do PostgreSQL |
 | `REDIS_URL` | URL do Redis |
 | `JWT_SECRET` | Segredo para tokens internos |
+| `CORS_ALLOWED_ORIGINS` | Origens HTTPS autorizadas para CORS em producao |
 
 ## Variaveis com default
 | Variavel | Default | Descricao |
@@ -31,6 +32,11 @@ Nota License Engine Strategy:
 - `auto`: usa `fake` em `NODE_ENV=test` e `prisma` em `development/production`.
 - `fake`: permitido apenas fora de `production`.
 - `prisma`: forca adapter Prisma em qualquer ambiente (incluindo `test`).
+
+Nota CORS:
+- em `production`, `CORS_ALLOWED_ORIGINS` e obrigatoria e deve listar origins HTTPS separados por virgula;
+- `*` nao e aceito com credenciais;
+- em `development` e `test`, quando a variavel fica vazia, o servidor continua permissivo para facilitar o fluxo local.
 
 Runbook de rollout:
 - [Rollout da estrategia do License Engine](./license-engine-rollout.md)
@@ -98,8 +104,10 @@ Arquivo de orquestracao:
 Variaveis esperadas (base: `.env.prod.example`):
 - `PUBLIC_DOMAIN`
 - `BASIC_AUTH_USER`
+- `POSTGRES_PASSWORD`
 - `INTERNAL_ADMIN_API_KEYS`
 - `ADMIN_INTERNAL_API_KEY`
+- `CORS_ALLOWED_ORIGINS`
 - `ADMIN_WEB_ENABLE_MUTATIONS`
 - `CF_API_TOKEN`
 - `CF_ZONE_ID`

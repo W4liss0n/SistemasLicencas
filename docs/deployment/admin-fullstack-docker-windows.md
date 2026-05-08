@@ -32,9 +32,12 @@ Copy-Item .env.prod.example .env.prod
 Ajustar obrigatoriamente no `.env.prod`:
 - `PUBLIC_DOMAIN=admin.seu-dominio.com`
 - `BASIC_AUTH_USER=admin`
+- `POSTGRES_PASSWORD=<senha-forte-do-postgres>`
+- `DATABASE_URL=postgresql://postgres:<mesma-senha-do-postgres>@postgres:5432/sistema_licencas_v2`
 - `JWT_SECRET=<segredo-forte>`
 - `INTERNAL_ADMIN_API_KEYS=<chave-interna-forte>`
 - `ADMIN_INTERNAL_API_KEY=<mesma-chave-interna-forte>`
+- `CORS_ALLOWED_ORIGINS=https://admin.seu-dominio.com`
 - `CF_API_TOKEN=<token-cloudflare>`
 - `CF_ZONE_ID=<zone-id-cloudflare>`
 - `CF_RECORD_NAME=admin.seu-dominio.com`
@@ -122,6 +125,8 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml down
 
 ## Checklist de seguranca minima
 - Nao usar `dev-internal-admin-key` em producao.
+- Nao manter `postgres` como senha do banco em producao.
+- Manter `CORS_ALLOWED_ORIGINS` restrito ao dominio HTTPS publicado.
 - Nao versionar `.env.prod`, `.htpasswd`, certificados.
 - Rotacionar `INTERNAL_ADMIN_API_KEYS` trimestralmente.
 - Revisar WAF/rate-limit da Cloudflare para `/api/v2/license*` e `/api/v2/licenses*`.

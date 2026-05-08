@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: sistema_licencas_v2
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_v2_data:/var/lib/postgresql/data
     healthcheck:
@@ -47,19 +47,20 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: ${PORT:-3001}
       API_PREFIX: ${API_PREFIX:-/api/v2}
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      AUTH_PASSWORD_PEPPER: ${AUTH_PASSWORD_PEPPER}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      AUTH_PASSWORD_PEPPER: ${AUTH_PASSWORD_PEPPER:?AUTH_PASSWORD_PEPPER is required}
       REQUEST_TIMEOUT_MS: ${REQUEST_TIMEOUT_MS:-3000}
       IDEMPOTENCY_TTL_HOURS: ${IDEMPOTENCY_TTL_HOURS:-24}
       LICENSE_ENGINE_STRATEGY: ${LICENSE_ENGINE_STRATEGY:-prisma}
-      INTERNAL_ADMIN_API_KEYS: ${INTERNAL_ADMIN_API_KEYS}
+      INTERNAL_ADMIN_API_KEYS: ${INTERNAL_ADMIN_API_KEYS:?INTERNAL_ADMIN_API_KEYS is required}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required}
       OTEL_ENABLED: ${OTEL_ENABLED:-false}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-sistema-licencas-v2}
       METRICS_ENABLED: ${METRICS_ENABLED:-true}
       METRICS_PATH: ${METRICS_PATH:-/metrics}
-    command: sh -c "npm run api:prisma:migrate:deploy && npm run api:start"
+    command: sh -c "npm run prisma:migrate:deploy && npm run start"
     healthcheck:
       test:
         [
@@ -84,9 +85,9 @@ services:
     ports:
       - "443:443"
     environment:
-      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?PUBLIC_DOMAIN is required}
       BASIC_AUTH_REALM: ${BASIC_AUTH_REALM:-Admin Backoffice v2}
-      ADMIN_INTERNAL_API_KEY: ${ADMIN_INTERNAL_API_KEY}
+      ADMIN_INTERNAL_API_KEY: ${ADMIN_INTERNAL_API_KEY:?ADMIN_INTERNAL_API_KEY is required}
       ADMIN_WEB_ENABLE_MUTATIONS: ${ADMIN_WEB_ENABLE_MUTATIONS:-false}
       TLS_CERT_PATH: /etc/nginx/certs/origin.crt
       TLS_KEY_PATH: /etc/nginx/certs/origin.key

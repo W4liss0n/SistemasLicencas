@@ -127,6 +127,10 @@ export class AppConfigService {
       .filter((item) => item.length > 0);
   }
 
+  get corsAllowedOrigins(): string[] {
+    return this.configService.get('CORS_ALLOWED_ORIGINS', { infer: true });
+  }
+
   get otelEnabled(): boolean {
     return this.configService.get('OTEL_ENABLED', { infer: true });
   }

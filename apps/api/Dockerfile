@@ -8,7 +8,7 @@ RUN npm ci --workspace=sistema-licencas-v2
 
 FROM deps AS build
 COPY . .
-RUN npm run api:build
+RUN npm run api:prisma:generate && npm run api:build
 
 FROM node:22-alpine AS runtime
 WORKDIR /workspace
