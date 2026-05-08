@@ -101,4 +101,23 @@ describe('validateEnv', () => {
       )
     ).toThrow('Invalid environment configuration');
   });
+
+  it('throws when production omits access or refresh token secrets', () => {
+    const env = baseProductionEnv();
+    delete env.ACCESS_JWT_SECRET;
+    delete env.REFRESH_JWT_SECRET;
+
+    expect(() => validateEnv(env)).toThrow('Invalid environment configuration');
+  });
+
+  it('throws when production token secrets reuse the same value', () => {
+    expect(() =>
+      validateEnv(
+        baseProductionEnv({
+          ACCESS_JWT_SECRET: 'this-is-a-very-long-production-secret-123456',
+          REFRESH_JWT_SECRET: 'this-is-a-very-long-production-secret-123456'
+        })
+      )
+    ).toThrow('Invalid environment configuration');
+  });
 });

@@ -35,8 +35,8 @@ Ajustar obrigatoriamente no `.env.prod`:
 - `POSTGRES_PASSWORD=<senha-forte-do-postgres>`
 - `DATABASE_URL=postgresql://postgres:<mesma-senha-do-postgres>@postgres:5432/sistema_licencas_v2`
 - `JWT_SECRET=<segredo-forte>`
-- `ACCESS_JWT_SECRET=<segredo-forte-para-access-token>`
-- `REFRESH_JWT_SECRET=<segredo-forte-para-refresh-token>`
+- `ACCESS_JWT_SECRET=<segredo-forte-para-access-token>` (diferente de `JWT_SECRET`)
+- `REFRESH_JWT_SECRET=<segredo-forte-para-refresh-token>` (diferente de `JWT_SECRET` e de `ACCESS_JWT_SECRET`)
 - `AUTH_PASSWORD_PEPPER=<pepper-forte-para-credenciais>`
 - `INTERNAL_ADMIN_API_KEYS=<chave-interna-forte>`
 - `ADMIN_INTERNAL_API_KEY=<mesma-chave-interna-forte>`

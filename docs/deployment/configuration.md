@@ -6,8 +6,8 @@
 | `DATABASE_URL` | URL do PostgreSQL |
 | `REDIS_URL` | URL do Redis |
 | `JWT_SECRET` | Segredo para tokens internos |
-| `ACCESS_JWT_SECRET` | Segredo para tokens de acesso; em producao nao pode ficar com placeholder |
-| `REFRESH_JWT_SECRET` | Segredo para refresh tokens; em producao nao pode ficar com placeholder |
+| `ACCESS_JWT_SECRET` | Segredo para tokens de acesso; em producao e obrigatorio, nao pode ficar com placeholder e deve ser diferente de `JWT_SECRET` |
+| `REFRESH_JWT_SECRET` | Segredo para refresh tokens; em producao e obrigatorio, nao pode ficar com placeholder e deve ser diferente de `JWT_SECRET` e de `ACCESS_JWT_SECRET` |
 | `AUTH_PASSWORD_PEPPER` | Pepper de credenciais; em producao nao pode ficar com placeholder |
 | `CORS_ALLOWED_ORIGINS` | Origens HTTPS autorizadas para CORS em producao |
 

@@ -141,6 +141,46 @@ export const envSchema = z.object({
     });
   }
 
+  if (value.NODE_ENV === 'production') {
+    for (const key of ['ACCESS_JWT_SECRET', 'REFRESH_JWT_SECRET'] as const) {
+      if (!value[key]) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} is required in production`
+        });
+      }
+    }
+
+    if (value.ACCESS_JWT_SECRET && value.ACCESS_JWT_SECRET === value.JWT_SECRET) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ACCESS_JWT_SECRET'],
+        message: 'ACCESS_JWT_SECRET must be different from JWT_SECRET in production'
+      });
+    }
+
+    if (value.REFRESH_JWT_SECRET && value.REFRESH_JWT_SECRET === value.JWT_SECRET) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['REFRESH_JWT_SECRET'],
+        message: 'REFRESH_JWT_SECRET must be different from JWT_SECRET in production'
+      });
+    }
+
+    if (
+      value.ACCESS_JWT_SECRET &&
+      value.REFRESH_JWT_SECRET &&
+      value.ACCESS_JWT_SECRET === value.REFRESH_JWT_SECRET
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['REFRESH_JWT_SECRET'],
+        message: 'REFRESH_JWT_SECRET must be different from ACCESS_JWT_SECRET in production'
+      });
+    }
+  }
+
   for (const key of [
     'JWT_SECRET',
     'ACCESS_JWT_SECRET',
