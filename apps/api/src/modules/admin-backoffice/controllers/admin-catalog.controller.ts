@@ -30,6 +30,7 @@ import {
   UpdatePlanRequestDto
 } from '../dto/admin-backoffice.dto';
 import { InternalApiKeyGuard } from '../../../common/guards/internal-api-key.guard';
+import { AdminAuthGuard } from '../../../common/guards/admin-auth.guard';
 import { AdminCatalogApplicationService } from '../services/application/admin-catalog-application.service';
 import { AdminCustomersApplicationService } from '../services/application/admin-customers-application.service';
 import {
@@ -42,8 +43,9 @@ import {
 import { requireInternalIdempotencyKey } from '../utils/required-headers';
 
 @ApiExcludeController()
-@UseGuards(InternalApiKeyGuard)
+@UseGuards(InternalApiKeyGuard, AdminAuthGuard)
 @ApiHeader({ name: 'X-Internal-Api-Key', required: true })
+@ApiHeader({ name: 'Authorization', required: false })
 @Controller('internal/admin')
 export class AdminCatalogController {
   constructor(

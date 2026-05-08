@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AppEnv } from './env.schema';
+import { parseAdminAuthRequiredScopes } from './admin-auth-scopes';
 
 @Injectable()
 export class AppConfigService {
@@ -101,6 +102,28 @@ export class AppConfigService {
 
   get oidcClockSkewSeconds(): number {
     return this.configService.get('OIDC_CLOCK_SKEW_SECONDS', { infer: true });
+  }
+
+  get adminAuthEnabled(): boolean {
+    return this.configService.get('ADMIN_AUTH_ENABLED', { infer: true });
+  }
+
+  get adminAuthIssuerUrl(): string {
+    const value = this.configService.get('ADMIN_AUTH_ISSUER_URL', { infer: true }) ?? '';
+    return value.length > 0 && !value.endsWith('/') ? `${value}/` : value;
+  }
+
+  get adminAuthAudience(): string {
+    return this.configService.get('ADMIN_AUTH_AUDIENCE', { infer: true }) ?? '';
+  }
+
+  get adminAuthRequiredScopes(): string[] {
+    const raw = this.configService.get('ADMIN_AUTH_REQUIRED_SCOPES', { infer: true });
+    return parseAdminAuthRequiredScopes(raw);
+  }
+
+  get adminAuthClockToleranceSeconds(): number {
+    return this.configService.get('ADMIN_AUTH_CLOCK_TOLERANCE_SECONDS', { infer: true });
   }
 
   get authPasswordPepper(): string {

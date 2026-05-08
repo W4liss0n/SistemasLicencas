@@ -29,6 +29,9 @@ process.env.OIDC_CLOCK_SKEW_SECONDS = process.env.OIDC_CLOCK_SKEW_SECONDS ?? '12
 process.env.AUTH_PASSWORD_PEPPER =
   process.env.AUTH_PASSWORD_PEPPER ?? 'test-auth-pepper-with-32-characters';
 process.env.INTERNAL_ADMIN_API_KEYS = 'dev-internal-admin-key';
+process.env.ADMIN_AUTH_ENABLED = 'false';
+process.env.ADMIN_AUTH_REQUIRED_SCOPES = 'admin:access';
+process.env.ADMIN_AUTH_CLOCK_TOLERANCE_SECONDS = '60';
 process.env.REQUEST_TIMEOUT_MS = process.env.REQUEST_TIMEOUT_MS ?? '3000';
 process.env.IDEMPOTENCY_TTL_HOURS = process.env.IDEMPOTENCY_TTL_HOURS ?? '24';
 process.env.LICENSE_ENGINE_STRATEGY = process.env.LICENSE_ENGINE_STRATEGY ?? 'auto';

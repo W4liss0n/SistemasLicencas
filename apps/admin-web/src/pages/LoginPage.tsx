@@ -1,12 +1,52 @@
-import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
-import { useState } from 'react';
+import { Alert, Box, Button, CircularProgress, Paper, Stack, TextField, Typography } from '@mui/material';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  completeAdminAuthCallback,
+  hasAdminAuthCallbackParams,
+  isAdminAuthEnabled,
+  startAdminAuthLogin
+} from '../app/admin-auth';
 import { setOperatorContextName } from '../app/session';
 
 export function LoginPage() {
   const [operator, setOperator] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isBusy, setIsBusy] = useState(hasAdminAuthCallbackParams());
   const navigate = useNavigate();
+  const authEnabled = isAdminAuthEnabled();
+
+  useEffect(() => {
+    if (!authEnabled || !hasAdminAuthCallbackParams()) {
+      return;
+    }
+
+    setIsBusy(true);
+    completeAdminAuthCallback()
+      .then((returnTo) => navigate(returnTo, { replace: true }))
+      .catch((callbackError: unknown) => {
+        setError(callbackError instanceof Error ? callbackError.message : 'Falha ao concluir login.');
+        setIsBusy(false);
+      });
+  }, [authEnabled, navigate]);
+
+  const submitLocalOperator = () => {
+    if (operator.trim().length < 2) {
+      setError('Informe um identificador de operador com pelo menos 2 caracteres.');
+      return;
+    }
+    setOperatorContextName(operator);
+    navigate('/dashboard');
+  };
+
+  const submitAuth0Login = () => {
+    setError(null);
+    setIsBusy(true);
+    startAdminAuthLogin('/dashboard').catch((loginError: unknown) => {
+      setError(loginError instanceof Error ? loginError.message : 'Falha ao iniciar login.');
+      setIsBusy(false);
+    });
+  };
 
   return (
     <Box
@@ -25,33 +65,36 @@ export function LoginPage() {
             <Typography variant="overline">Internal Access</Typography>
             <Typography variant="h5">Backoffice v2</Typography>
             <Typography variant="body2" sx={{ color: 'var(--controlroom-ink-secondary)' }}>
-              Sessao local do operador para trilha de decisao. Controle principal continua no edge corporativo.
+              {authEnabled
+                ? 'Acesso administrativo protegido por Auth0.'
+                : 'Sessao local do operador para trilha de decisao. Controle principal continua no edge corporativo.'}
             </Typography>
           </Stack>
 
-          <TextField
-            label="Operador"
-            value={operator}
-            onChange={(event) => setOperator(event.target.value)}
-            placeholder="ops-user"
-            size="small"
-            autoFocus
-          />
+          {authEnabled ? null : (
+            <TextField
+              label="Operador"
+              value={operator}
+              onChange={(event) => setOperator(event.target.value)}
+              placeholder="ops-user"
+              size="small"
+              autoFocus
+            />
+          )}
 
           {error ? <Alert severity="error">{error}</Alert> : null}
 
-          <Button
-            variant="contained"
-            onClick={() => {
-              if (operator.trim().length < 2) {
-                setError('Informe um identificador de operador com pelo menos 2 caracteres.');
-                return;
-              }
-              setOperatorContextName(operator);
-              navigate('/dashboard');
-            }}
-          >
-            Entrar no control room
+          <Button variant="contained" onClick={authEnabled ? submitAuth0Login : submitLocalOperator} disabled={isBusy}>
+            {isBusy ? (
+              <Stack direction="row" spacing={1} alignItems="center">
+                <CircularProgress color="inherit" size={18} />
+                <span>Entrando...</span>
+              </Stack>
+            ) : authEnabled ? (
+              'Entrar com Auth0'
+            ) : (
+              'Entrar no control room'
+            )}
           </Button>
         </Stack>
       </Paper>

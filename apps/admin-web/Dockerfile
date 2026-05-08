@@ -15,9 +15,15 @@ ENV PUBLIC_DOMAIN=localhost \
     BASIC_AUTH_REALM="Admin Backoffice v2" \
     ADMIN_INTERNAL_API_KEY=change-me-internal-key \
     ADMIN_WEB_ENABLE_MUTATIONS=false \
+    ADMIN_AUTH_ENABLED=false \
+    ADMIN_AUTH_ISSUER_URL="" \
+    ADMIN_AUTH_CLIENT_ID="" \
+    ADMIN_AUTH_AUDIENCE="" \
+    ADMIN_AUTH_SCOPES="openid profile email admin:access" \
+    ADMIN_AUTH_CONNECT_SRC="" \
     TLS_CERT_PATH=/etc/nginx/certs/origin.crt \
     TLS_KEY_PATH=/etc/nginx/certs/origin.key \
-    NGINX_ENVSUBST_FILTER='PUBLIC_DOMAIN|BASIC_AUTH_REALM|ADMIN_INTERNAL_API_KEY|TLS_CERT_PATH|TLS_KEY_PATH'
+    NGINX_ENVSUBST_FILTER='PUBLIC_DOMAIN|BASIC_AUTH_REALM|ADMIN_INTERNAL_API_KEY|ADMIN_AUTH_CONNECT_SRC|TLS_CERT_PATH|TLS_KEY_PATH'
 
 RUN rm -f /etc/nginx/conf.d/default.conf \
     && mkdir -p /etc/nginx/auth /etc/nginx/certs

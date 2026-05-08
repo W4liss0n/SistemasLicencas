@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseAdminAuthRequiredScopes } from './admin-auth-scopes';
 
 const booleanEnv = z.preprocess((value) => {
   if (typeof value === 'string') {
@@ -12,6 +13,22 @@ const booleanEnv = z.preprocess((value) => {
   }
   return value;
 }, z.boolean());
+
+const optionalUrlEnv = z.preprocess((value) => {
+  if (typeof value === 'string' && value.trim().length === 0) {
+    return undefined;
+  }
+
+  return value;
+}, z.string().url().optional());
+
+const optionalNonEmptyStringEnv = z.preprocess((value) => {
+  if (typeof value === 'string' && value.trim().length === 0) {
+    return undefined;
+  }
+
+  return value;
+}, z.string().min(1).optional());
 
 const corsAllowedOriginsEnv = z
   .preprocess((value) => {
@@ -94,6 +111,11 @@ export const envSchema = z.object({
   OIDC_SCOPES: z.string().min(1).default('openid profile email'),
   OIDC_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
   OIDC_CLOCK_SKEW_SECONDS: z.coerce.number().int().nonnegative().default(120),
+  ADMIN_AUTH_ENABLED: booleanEnv.default(false),
+  ADMIN_AUTH_ISSUER_URL: optionalUrlEnv,
+  ADMIN_AUTH_AUDIENCE: optionalNonEmptyStringEnv,
+  ADMIN_AUTH_REQUIRED_SCOPES: z.string().min(1).default('admin:access'),
+  ADMIN_AUTH_CLOCK_TOLERANCE_SECONDS: z.coerce.number().int().nonnegative().default(60),
   AUTH_PASSWORD_PEPPER: z.string().min(16).default('change-me-auth-pepper-please'),
   REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
   IDEMPOTENCY_TTL_HOURS: z.coerce.number().int().positive().default(24),
@@ -246,6 +268,32 @@ export const envSchema = z.object({
         code: z.ZodIssueCode.custom,
         path: ['OFFLINE_JWT_PUBLIC_KEY_PEM'],
         message: 'OFFLINE_JWT_PUBLIC_KEY_PEM is required when END_USER_AUTH_ENABLED=true'
+      });
+    }
+  }
+
+  if (value.ADMIN_AUTH_ENABLED) {
+    if (!value.ADMIN_AUTH_ISSUER_URL) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ADMIN_AUTH_ISSUER_URL'],
+        message: 'ADMIN_AUTH_ISSUER_URL is required when ADMIN_AUTH_ENABLED=true'
+      });
+    }
+
+    if (!value.ADMIN_AUTH_AUDIENCE) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ADMIN_AUTH_AUDIENCE'],
+        message: 'ADMIN_AUTH_AUDIENCE is required when ADMIN_AUTH_ENABLED=true'
+      });
+    }
+
+    if (parseAdminAuthRequiredScopes(value.ADMIN_AUTH_REQUIRED_SCOPES).length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ADMIN_AUTH_REQUIRED_SCOPES'],
+        message: 'ADMIN_AUTH_REQUIRED_SCOPES must include at least one scope when ADMIN_AUTH_ENABLED=true'
       });
     }
   }

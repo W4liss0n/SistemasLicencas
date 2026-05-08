@@ -1,7 +1,16 @@
 import { ApiError } from './api-error';
 import { mapProblemDetails, mapUnknownError } from './problem-mapper';
+import { getAdminAuthAccessToken, isAdminAuthEnabled } from '../../app/admin-auth';
+import type { ProblemDetails } from '../../types/api';
 
 const DEFAULT_TIMEOUT_MS = 8_000;
+const ADMIN_AUTH_FORWARD_HEADER = 'X-Admin-Authorization';
+const ACCESS_DENIED_ERROR_CODES = new Set([
+  'admin_auth_required',
+  'admin_auth_invalid_token',
+  'admin_auth_forbidden',
+  'unauthorized_internal'
+]);
 
 type RequestOptions = RequestInit & {
   timeoutMs?: number;
@@ -57,9 +66,14 @@ async function parseJsonSafe(response: Response): Promise<unknown> {
   }
 }
 
+function shouldRedirectToAccessDenied(problem: ProblemDetails): boolean {
+  return (problem.status === 401 || problem.status === 403) && ACCESS_DENIED_ERROR_CODES.has(problem.code ?? '');
+}
+
 export async function requestJson<T>(url: string, options: RequestOptions = {}): Promise<T> {
   const { timeoutMs = DEFAULT_TIMEOUT_MS, headers, ...rest } = options;
   const abortContext = createRequestAbortContext(rest.signal, timeoutMs);
+  const authToken = isAdminAuthEnabled() ? getAdminAuthAccessToken() : null;
 
   try {
     const response = await fetch(url, {
@@ -67,6 +81,7 @@ export async function requestJson<T>(url: string, options: RequestOptions = {}):
       signal: abortContext.signal,
       headers: {
         Accept: 'application/json, application/problem+json',
+        ...(authToken ? { [ADMIN_AUTH_FORWARD_HEADER]: `Bearer ${authToken}` } : {}),
         ...(headers || {})
       }
     });
@@ -75,7 +90,7 @@ export async function requestJson<T>(url: string, options: RequestOptions = {}):
 
     if (!response.ok) {
       const mapped = mapProblemDetails(payload, response.status);
-      if (typeof window !== 'undefined' && (response.status === 401 || response.status === 403)) {
+      if (typeof window !== 'undefined' && shouldRedirectToAccessDenied(mapped)) {
         window.location.assign('/access-denied');
       }
       throw new ApiError(mapped);

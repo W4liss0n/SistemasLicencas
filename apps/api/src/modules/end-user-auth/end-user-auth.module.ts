@@ -19,6 +19,7 @@ import { SessionTokenService } from './services/session-token.service';
 import { CatalogBillingModule } from '../catalog-billing/catalog-billing.module';
 import { DeviceTrustModule } from '../device-trust/device-trust.module';
 import { OfflineEntitlementModule } from '../offline-entitlement/offline-entitlement.module';
+import { AdminAuthGuard } from '../../common/guards/admin-auth.guard';
 import { InternalApiKeyGuard } from '../../common/guards/internal-api-key.guard';
 
 @Module({
@@ -38,6 +39,7 @@ import { InternalApiKeyGuard } from '../../common/guards/internal-api-key.guard'
     LogoutSessionUseCase,
     CurrentUserUseCase,
     AccessTokenGuard,
+    AdminAuthGuard,
     InternalApiKeyGuard
   ],
   exports: [EndUserAuthService]

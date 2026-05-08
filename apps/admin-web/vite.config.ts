@@ -25,10 +25,16 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/admin-api/, '/api/v2/internal/admin'),
           configure: (proxy) => {
-            proxy.on('proxyReq', (proxyReq) => {
+            proxy.on('proxyReq', (proxyReq, req) => {
               if (internalApiKey) {
                 proxyReq.setHeader('X-Internal-Api-Key', internalApiKey);
               }
+
+              const adminAuthHeader = req.headers['x-admin-authorization'];
+              if (typeof adminAuthHeader === 'string' && adminAuthHeader.length > 0) {
+                proxyReq.setHeader('Authorization', adminAuthHeader);
+              }
+              proxyReq.removeHeader('X-Admin-Authorization');
             });
           }
         }

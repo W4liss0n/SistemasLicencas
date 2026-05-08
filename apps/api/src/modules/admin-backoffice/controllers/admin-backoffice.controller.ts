@@ -22,6 +22,7 @@ import {
   UpdateLicenseRequestDto
 } from '../dto/admin-backoffice.dto';
 import { InternalApiKeyGuard } from '../../../common/guards/internal-api-key.guard';
+import { AdminAuthGuard } from '../../../common/guards/admin-auth.guard';
 import { AdminLicensesApplicationService } from '../services/application/admin-licenses-application.service';
 import { AdminOperationalSummaryApplicationService } from '../services/application/admin-operational-summary-application.service';
 import {
@@ -34,8 +35,9 @@ import { requireInternalIdempotencyKey } from '../utils/required-headers';
 import { DomainHttpError } from '../../../common/errors/domain-http-error';
 
 @ApiExcludeController()
-@UseGuards(InternalApiKeyGuard)
+@UseGuards(InternalApiKeyGuard, AdminAuthGuard)
 @ApiHeader({ name: 'X-Internal-Api-Key', required: true })
+@ApiHeader({ name: 'Authorization', required: false })
 @Controller('internal/admin')
 export class AdminBackofficeController {
   constructor(

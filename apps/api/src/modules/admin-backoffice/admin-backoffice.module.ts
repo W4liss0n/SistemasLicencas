@@ -3,6 +3,7 @@ import { AppConfigService } from '../../config/app-config.service';
 import { CommonIdempotencyModule } from '../../common/idempotency/common-idempotency.module';
 import { AdminCatalogController } from './controllers/admin-catalog.controller';
 import { AdminBackofficeController } from './controllers/admin-backoffice.controller';
+import { AdminAuthGuard } from '../../common/guards/admin-auth.guard';
 import { InternalApiKeyGuard } from '../../common/guards/internal-api-key.guard';
 import { ADMIN_BACKOFFICE_PORT } from './ports/admin-backoffice.port';
 import { AdminCatalogApplicationService } from './services/application/admin-catalog-application.service';
@@ -20,6 +21,7 @@ import { PrismaAdminBackofficeService } from './services/prisma-admin-backoffice
     AdminCustomersApplicationService,
     AdminLicensesApplicationService,
     AdminOperationalSummaryApplicationService,
+    AdminAuthGuard,
     InternalApiKeyGuard,
     InMemoryAdminBackofficeService,
     PrismaAdminBackofficeService,
