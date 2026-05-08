@@ -38,6 +38,34 @@ function stubFetchWithStalledBody(): void {
   );
 }
 
+function stubJsonResponse(status: number, payload: unknown): void {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() =>
+      Promise.resolve({
+        ok: status >= 200 && status < 300,
+        status,
+        statusText: status === 403 ? 'Forbidden' : 'Unauthorized',
+        text: () => Promise.resolve(JSON.stringify(payload))
+      } as Response)
+    )
+  );
+}
+
+function stubAccessDeniedNavigation(): ReturnType<typeof vi.fn> {
+  const assign = vi.fn();
+  const windowStub = Object.create(window) as Window & typeof globalThis;
+  Object.defineProperty(windowStub, 'location', {
+    configurable: true,
+    value: {
+      ...window.location,
+      assign
+    }
+  });
+  vi.stubGlobal('window', windowStub);
+  return assign;
+}
+
 describe('requestJson', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -115,5 +143,43 @@ describe('requestJson', () => {
       'X-Admin-Authorization': 'Bearer admin-token'
     });
     expect(init.headers).not.toHaveProperty('Authorization');
+  });
+
+  it('keeps domain 403 errors in the calling UI instead of redirecting to access denied', async () => {
+    const assign = stubAccessDeniedNavigation();
+    stubJsonResponse(403, {
+      title: 'Forbidden',
+      status: 403,
+      code: 'program_not_included',
+      detail: 'Program not included in subscription plan'
+    });
+
+    await expect(requestJson('/admin-api/licenses')).rejects.toMatchObject({
+      name: 'ApiError',
+      problem: {
+        status: 403,
+        code: 'program_not_included'
+      }
+    });
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('redirects admin authentication failures to access denied', async () => {
+    const assign = stubAccessDeniedNavigation();
+    stubJsonResponse(403, {
+      title: 'Forbidden',
+      status: 403,
+      code: 'admin_auth_forbidden',
+      detail: 'Missing required admin scope'
+    });
+
+    await expect(requestJson('/admin-api/licenses')).rejects.toMatchObject({
+      name: 'ApiError',
+      problem: {
+        status: 403,
+        code: 'admin_auth_forbidden'
+      }
+    });
+    expect(assign).toHaveBeenCalledWith('/access-denied');
   });
 });
