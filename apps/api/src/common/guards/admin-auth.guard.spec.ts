@@ -27,14 +27,15 @@ describe('AdminAuthGuard', () => {
   function buildContext(authorization?: string): ExecutionContext {
     class Controller {}
     const handler = () => undefined;
+    const request = {
+      headers: authorization ? { authorization } : {}
+    };
 
     return {
       getClass: () => Controller,
       getHandler: () => handler,
       switchToHttp: () => ({
-        getRequest: () => ({
-          headers: authorization ? { authorization } : {}
-        })
+        getRequest: () => request
       })
     } as unknown as ExecutionContext;
   }
@@ -59,6 +60,28 @@ describe('AdminAuthGuard', () => {
 
     await expect(guard.canActivate(buildContext('Bearer '))).rejects.toThrow(
       'Authorization Bearer token is required'
+    );
+  });
+
+  it('uses configured scopes when route metadata is not set', async () => {
+    const guard = new AdminAuthGuard(
+      buildConfig({
+        adminAuthEnabled: true,
+        adminAuthRequiredScopes: ['licenses:admin']
+      }) as never,
+      new Reflector()
+    );
+    jest
+      .spyOn(
+        guard as unknown as {
+          verifyAccessToken(token: string): Promise<Record<string, unknown>>;
+        },
+        'verifyAccessToken'
+      )
+      .mockResolvedValue({ sub: 'operator-1', scope: 'admin:access' });
+
+    await expect(guard.canActivate(buildContext('Bearer valid-token'))).rejects.toThrow(
+      'Auth0 access token is missing required scope: licenses:admin'
     );
   });
 });

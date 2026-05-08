@@ -8,11 +8,9 @@ import {
 import { EndUserAdminService } from '../services/end-user-admin.service';
 import { InternalApiKeyGuard } from '../../../common/guards/internal-api-key.guard';
 import { AdminAuthGuard } from '../../../common/guards/admin-auth.guard';
-import { AdminAuthScopes } from '../../../common/guards/admin-auth-scopes.decorator';
 
 @ApiExcludeController()
 @UseGuards(InternalApiKeyGuard, AdminAuthGuard)
-@AdminAuthScopes('admin:access')
 @ApiHeader({ name: 'X-Internal-Api-Key', required: true })
 @ApiHeader({ name: 'Authorization', required: false })
 @Controller('internal/admin/users')

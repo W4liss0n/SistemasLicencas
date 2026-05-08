@@ -23,7 +23,6 @@ import {
 } from '../dto/admin-backoffice.dto';
 import { InternalApiKeyGuard } from '../../../common/guards/internal-api-key.guard';
 import { AdminAuthGuard } from '../../../common/guards/admin-auth.guard';
-import { AdminAuthScopes } from '../../../common/guards/admin-auth-scopes.decorator';
 import { AdminLicensesApplicationService } from '../services/application/admin-licenses-application.service';
 import { AdminOperationalSummaryApplicationService } from '../services/application/admin-operational-summary-application.service';
 import {
@@ -37,7 +36,6 @@ import { DomainHttpError } from '../../../common/errors/domain-http-error';
 
 @ApiExcludeController()
 @UseGuards(InternalApiKeyGuard, AdminAuthGuard)
-@AdminAuthScopes('admin:access')
 @ApiHeader({ name: 'X-Internal-Api-Key', required: true })
 @ApiHeader({ name: 'Authorization', required: false })
 @Controller('internal/admin')
