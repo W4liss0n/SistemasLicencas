@@ -120,4 +120,32 @@ describe('validateEnv', () => {
       )
     ).toThrow('Invalid environment configuration');
   });
+
+  it('requires Auth0 issuer and audience when admin auth is enabled', () => {
+    expect(() =>
+      validateEnv(
+        baseProductionEnv({
+          ADMIN_AUTH_ENABLED: 'true',
+          ADMIN_AUTH_REQUIRED_SCOPES: 'admin:access'
+        })
+      )
+    ).toThrow('Invalid environment configuration');
+  });
+
+  it('parses admin auth config when enabled', () => {
+    const env = validateEnv(
+      baseProductionEnv({
+        ADMIN_AUTH_ENABLED: 'true',
+        ADMIN_AUTH_ISSUER_URL: 'https://tenant.example.auth0.com/',
+        ADMIN_AUTH_AUDIENCE: 'https://api.example.com/admin',
+        ADMIN_AUTH_REQUIRED_SCOPES: 'admin:access licenses:read',
+        ADMIN_AUTH_CLOCK_TOLERANCE_SECONDS: '30'
+      })
+    );
+
+    expect(env.ADMIN_AUTH_ENABLED).toBe(true);
+    expect(env.ADMIN_AUTH_ISSUER_URL).toBe('https://tenant.example.auth0.com/');
+    expect(env.ADMIN_AUTH_AUDIENCE).toBe('https://api.example.com/admin');
+    expect(env.ADMIN_AUTH_CLOCK_TOLERANCE_SECONDS).toBe(30);
+  });
 });

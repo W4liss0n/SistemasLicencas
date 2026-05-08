@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getPublicVersion, isMutationsEnabled } from './runtime-config';
+import { getAdminAuthConfig, getPublicVersion, isMutationsEnabled } from './runtime-config';
 
 function readWorkspacePublicVersion(): string {
   const packageJson = JSON.parse(
@@ -32,6 +32,25 @@ describe('runtime-config', () => {
     vi.stubEnv('VITE_ADMIN_WEB_ENABLE_MUTATIONS', 'true');
 
     expect(isMutationsEnabled()).toBe(true);
+  });
+
+  it('reads Auth0 admin runtime config', () => {
+    vi.stubEnv('VITE_ADMIN_AUTH_ENABLED', 'false');
+    window.__ADMIN_WEB_CONFIG__ = {
+      adminAuthEnabled: true,
+      adminAuthIssuerUrl: 'https://tenant.example.auth0.com/',
+      adminAuthClientId: 'admin-spa',
+      adminAuthAudience: 'https://api.example.com/admin',
+      adminAuthScopes: 'openid profile email admin:access'
+    };
+
+    expect(getAdminAuthConfig()).toEqual({
+      enabled: true,
+      issuerUrl: 'https://tenant.example.auth0.com/',
+      clientId: 'admin-spa',
+      audience: 'https://api.example.com/admin',
+      scopes: 'openid profile email admin:access'
+    });
   });
 
   it('returns the build-time public version', () => {

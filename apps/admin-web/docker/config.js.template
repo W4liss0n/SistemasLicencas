@@ -2,6 +2,11 @@ window.__ADMIN_WEB_CONFIG__ = Object.assign(
   {},
   window.__ADMIN_WEB_CONFIG__ || {},
   {
-    adminWebEnableMutations: ${ADMIN_WEB_ENABLE_MUTATIONS}
+    adminWebEnableMutations: ${ADMIN_WEB_ENABLE_MUTATIONS},
+    adminAuthEnabled: ${ADMIN_AUTH_ENABLED},
+    adminAuthIssuerUrl: "${ADMIN_AUTH_ISSUER_URL}",
+    adminAuthClientId: "${ADMIN_AUTH_CLIENT_ID}",
+    adminAuthAudience: "${ADMIN_AUTH_AUDIENCE}",
+    adminAuthScopes: "${ADMIN_AUTH_SCOPES}"
   }
 );

@@ -11,6 +11,13 @@
 | `AUTH_PASSWORD_PEPPER` | Pepper de credenciais; em producao nao pode ficar com placeholder |
 | `CORS_ALLOWED_ORIGINS` | Origens HTTPS autorizadas para CORS em producao |
 
+Obrigatorias apenas quando `ADMIN_AUTH_ENABLED=true`:
+
+| Variavel | Descricao |
+|---|---|
+| `ADMIN_AUTH_ISSUER_URL` | Issuer do tenant Auth0 usado pelo painel administrativo |
+| `ADMIN_AUTH_AUDIENCE` | Identifier da API Auth0 que emite o access token do painel administrativo |
+
 ## Variaveis com default
 | Variavel | Default | Descricao |
 |---|---|---|
@@ -21,6 +28,9 @@
 | `REQUEST_TIMEOUT_MS` | `3000` | Timeout global de request |
 | `IDEMPOTENCY_TTL_HOURS` | `24` | Janela de replay idempotente |
 | `LICENSE_ENGINE_STRATEGY` | `auto` | Seleciona engine (`auto`, `fake`, `prisma`) |
+| `ADMIN_AUTH_ENABLED` | `false` | Exige access token Auth0 nos endpoints internos admin quando habilitado |
+| `ADMIN_AUTH_REQUIRED_SCOPES` | `admin:access` | Scopes/permissoes exigidos no access token Auth0 admin |
+| `ADMIN_AUTH_CLOCK_TOLERANCE_SECONDS` | `60` | Tolerancia de relogio na validacao JWT Auth0 |
 | `OTEL_ENABLED` | `false` | Habilita tracing |
 | `OTEL_SERVICE_NAME` | `sistema-licencas-v2` | Nome do servico em traces |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | vazio | Endpoint OTLP HTTP |
@@ -40,6 +50,12 @@ Nota CORS:
 - em `production`, `CORS_ALLOWED_ORIGINS` e obrigatoria e deve listar origins HTTPS separados por virgula;
 - `*` nao e aceito com credenciais;
 - em `development` e `test`, quando a variavel fica vazia, o servidor continua permissivo para facilitar o fluxo local.
+
+Nota Auth0 Admin:
+- `ADMIN_AUTH_ENABLED=false` preserva o fluxo atual com Basic Auth + chave interna no gateway;
+- com `ADMIN_AUTH_ENABLED=true`, o gateway continua injetando `X-Internal-Api-Key`, mas a API tambem exige `Authorization: Bearer <access_token>`;
+- o access token deve ser JWT RS256 emitido pelo `ADMIN_AUTH_ISSUER_URL`, com `aud` igual a `ADMIN_AUTH_AUDIENCE` e scope/permissao `admin:access` por padrao;
+- para Auth0 RBAC, habilite RBAC na API e atribua a permissao `admin:access` ao operador ou role.
 
 Runbook de rollout:
 - [Rollout da estrategia do License Engine](./license-engine-rollout.md)
@@ -75,6 +91,11 @@ ADMIN_INTERNAL_API_KEY=change-me-internal-key
 ADMIN_WEB_PORT=4173
 ADMIN_WEB_PREVIEW_PORT=4273
 VITE_ADMIN_WEB_ENABLE_MUTATIONS=true
+VITE_ADMIN_AUTH_ENABLED=false
+VITE_ADMIN_AUTH_ISSUER_URL=https://tenant.example.auth0.com/
+VITE_ADMIN_AUTH_CLIENT_ID=admin-web-client-id
+VITE_ADMIN_AUTH_AUDIENCE=https://api.example.com/admin
+VITE_ADMIN_AUTH_SCOPES=openid profile email admin:access
 ```
 
 Regras:
@@ -82,6 +103,7 @@ Regras:
 - O navegador nunca envia `X-Internal-Api-Key` diretamente; o header e injetado no proxy do Vite.
 - Em producao, o mesmo padrao deve ser replicado em reverse proxy/edge.
 - A flag de mutacoes para producao deve ser controlada por runtime config (`ADMIN_WEB_ENABLE_MUTATIONS`) para permitir rollback sem rebuild.
+- Em producao com Auth0, `ADMIN_AUTH_CONNECT_SRC` deve listar a origin Auth0 permitida pelo CSP, por exemplo `https://tenant.example.auth0.com`.
 
 Comandos:
 
@@ -112,6 +134,13 @@ Variaveis esperadas (base: `.env.prod.example`):
 - `ADMIN_INTERNAL_API_KEY`
 - `CORS_ALLOWED_ORIGINS`
 - `ADMIN_WEB_ENABLE_MUTATIONS`
+- `ADMIN_AUTH_ENABLED`
+- `ADMIN_AUTH_ISSUER_URL`
+- `ADMIN_AUTH_AUDIENCE`
+- `ADMIN_AUTH_REQUIRED_SCOPES`
+- `ADMIN_AUTH_CLIENT_ID`
+- `ADMIN_AUTH_SCOPES`
+- `ADMIN_AUTH_CONNECT_SRC`
 - `CF_API_TOKEN`
 - `CF_ZONE_ID`
 - `CF_RECORD_NAME`

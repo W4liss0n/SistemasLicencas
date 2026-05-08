@@ -1,5 +1,6 @@
 import { ApiError } from './api-error';
 import { mapProblemDetails, mapUnknownError } from './problem-mapper';
+import { getAdminAuthAccessToken, isAdminAuthEnabled } from '../../app/admin-auth';
 
 const DEFAULT_TIMEOUT_MS = 8_000;
 
@@ -60,6 +61,7 @@ async function parseJsonSafe(response: Response): Promise<unknown> {
 export async function requestJson<T>(url: string, options: RequestOptions = {}): Promise<T> {
   const { timeoutMs = DEFAULT_TIMEOUT_MS, headers, ...rest } = options;
   const abortContext = createRequestAbortContext(rest.signal, timeoutMs);
+  const authToken = isAdminAuthEnabled() ? getAdminAuthAccessToken() : null;
 
   try {
     const response = await fetch(url, {
@@ -67,6 +69,7 @@ export async function requestJson<T>(url: string, options: RequestOptions = {}):
       signal: abortContext.signal,
       headers: {
         Accept: 'application/json, application/problem+json',
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         ...(headers || {})
       }
     });

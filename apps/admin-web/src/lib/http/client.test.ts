@@ -41,6 +41,8 @@ function stubFetchWithStalledBody(): void {
 describe('requestJson', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    delete window.__ADMIN_WEB_CONFIG__;
+    window.sessionStorage.clear();
   });
 
   it('maps timeout-triggered aborts to ApiError', async () => {
@@ -78,6 +80,39 @@ describe('requestJson', () => {
     await expect(request).rejects.toMatchObject({ name: 'AbortError' });
     await request.catch((error: unknown) => {
       expect(error).not.toBeInstanceOf(ApiError);
+    });
+  });
+
+  it('sends Auth0 bearer token when admin auth is enabled', async () => {
+    window.__ADMIN_WEB_CONFIG__ = {
+      adminAuthEnabled: true,
+      adminAuthIssuerUrl: 'https://tenant.example.auth0.com/',
+      adminAuthClientId: 'admin-spa',
+      adminAuthAudience: 'https://api.example.com/admin',
+      adminAuthScopes: 'openid profile email admin:access'
+    };
+    window.sessionStorage.setItem(
+      'admin-web-auth-session',
+      JSON.stringify({
+        accessToken: 'admin-token',
+        expiresAtMs: Date.now() + 60_000
+      })
+    );
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve('{"ok":true}')
+      } as Response)
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestJson('/admin-api/check')).resolves.toEqual({ ok: true });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.headers).toMatchObject({
+      Authorization: 'Bearer admin-token'
     });
   });
 });

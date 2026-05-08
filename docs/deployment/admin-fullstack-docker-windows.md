@@ -41,6 +41,13 @@ Ajustar obrigatoriamente no `.env.prod`:
 - `INTERNAL_ADMIN_API_KEYS=<chave-interna-forte>`
 - `ADMIN_INTERNAL_API_KEY=<mesma-chave-interna-forte>`
 - `CORS_ALLOWED_ORIGINS=https://admin.seu-dominio.com`
+- `ADMIN_AUTH_ENABLED=false` (habilitar depois que Auth0 estiver configurado)
+- `ADMIN_AUTH_ISSUER_URL=https://tenant.example.auth0.com/`
+- `ADMIN_AUTH_AUDIENCE=<identifier-da-api-auth0-admin>`
+- `ADMIN_AUTH_REQUIRED_SCOPES=admin:access`
+- `ADMIN_AUTH_CLIENT_ID=<client-id-da-spa-admin>`
+- `ADMIN_AUTH_SCOPES=openid profile email admin:access`
+- `ADMIN_AUTH_CONNECT_SRC=https://tenant.example.auth0.com`
 - `CF_API_TOKEN=<token-cloudflare>`
 - `CF_ZONE_ID=<zone-id-cloudflare>`
 - `CF_RECORD_NAME=admin.seu-dominio.com`
@@ -82,6 +89,7 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml ps
 2. `GET /api/v2/health` deve responder `200` sem Basic Auth.
 3. `GET /api/v2/internal/admin/*` deve responder `403`.
 4. `GET /admin-api/*` com Basic Auth deve funcionar.
+5. Se `ADMIN_AUTH_ENABLED=true`, login pelo Auth0 deve concluir e `/admin-api/*` deve receber `Authorization: Bearer`.
 
 Smoke script:
 ```powershell
@@ -108,13 +116,24 @@ Recomendacoes:
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --no-deps --build admin-gateway
 ```
 
+## Passo 8 - Rollout Auth0 Admin
+1. Configurar no Auth0 uma SPA para o painel administrativo e uma API com RBAC.
+2. Liberar callback `https://<PUBLIC_DOMAIN>/login` e web origin `https://<PUBLIC_DOMAIN>`.
+3. Atribuir a permissao `admin:access` aos operadores.
+4. Ajustar `ADMIN_AUTH_*` no `.env.prod` e trocar `ADMIN_AUTH_ENABLED=true`.
+5. Recriar `api` e `admin-gateway`:
+```powershell
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --no-deps --build api admin-gateway
+```
+
 ## Rollback rapido
 1. Voltar `ADMIN_WEB_ENABLE_MUTATIONS=false`.
-2. Recriar `admin-gateway`:
+2. Se o problema for Auth0 Admin, voltar `ADMIN_AUTH_ENABLED=false`.
+3. Recriar `api` e `admin-gateway`:
 ```powershell
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --no-deps --build admin-gateway
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --no-deps --build api admin-gateway
 ```
-3. Se necessario rollback completo:
+4. Se necessario rollback completo:
 ```powershell
 docker compose --env-file .env.prod -f docker-compose.prod.yml down
 ```
