@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AppEnv } from './env.schema';
+import { parseAdminAuthRequiredScopes } from './admin-auth-scopes';
 
 @Injectable()
 export class AppConfigService {
@@ -118,10 +119,7 @@ export class AppConfigService {
 
   get adminAuthRequiredScopes(): string[] {
     const raw = this.configService.get('ADMIN_AUTH_REQUIRED_SCOPES', { infer: true });
-    return raw
-      .split(/[,\s]+/)
-      .map((scope) => scope.trim())
-      .filter((scope) => scope.length > 0);
+    return parseAdminAuthRequiredScopes(raw);
   }
 
   get adminAuthClockToleranceSeconds(): number {

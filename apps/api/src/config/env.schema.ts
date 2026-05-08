@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseAdminAuthRequiredScopes } from './admin-auth-scopes';
 
 const booleanEnv = z.preprocess((value) => {
   if (typeof value === 'string') {
@@ -285,6 +286,14 @@ export const envSchema = z.object({
         code: z.ZodIssueCode.custom,
         path: ['ADMIN_AUTH_AUDIENCE'],
         message: 'ADMIN_AUTH_AUDIENCE is required when ADMIN_AUTH_ENABLED=true'
+      });
+    }
+
+    if (parseAdminAuthRequiredScopes(value.ADMIN_AUTH_REQUIRED_SCOPES).length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ADMIN_AUTH_REQUIRED_SCOPES'],
+        message: 'ADMIN_AUTH_REQUIRED_SCOPES must include at least one scope when ADMIN_AUTH_ENABLED=true'
       });
     }
   }
