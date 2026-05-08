@@ -6,6 +6,10 @@
 | `DATABASE_URL` | URL do PostgreSQL |
 | `REDIS_URL` | URL do Redis |
 | `JWT_SECRET` | Segredo para tokens internos |
+| `ACCESS_JWT_SECRET` | Segredo para tokens de acesso; em producao e obrigatorio, nao pode ficar com placeholder e deve ser diferente de `JWT_SECRET` |
+| `REFRESH_JWT_SECRET` | Segredo para refresh tokens; em producao e obrigatorio, nao pode ficar com placeholder e deve ser diferente de `JWT_SECRET` e de `ACCESS_JWT_SECRET` |
+| `AUTH_PASSWORD_PEPPER` | Pepper de credenciais; em producao nao pode ficar com placeholder |
+| `CORS_ALLOWED_ORIGINS` | Origens HTTPS autorizadas para CORS em producao |
 
 ## Variaveis com default
 | Variavel | Default | Descricao |
@@ -13,7 +17,7 @@
 | `NODE_ENV` | `development` | Ambiente |
 | `PORT` | `3001` | Porta HTTP |
 | `API_PREFIX` | `/api/v2` | Prefixo global |
-| `AUTH_PASSWORD_PEPPER` | `change-me-auth-pepper-please` | Pepper da verificacao de senha |
+| `AUTH_PASSWORD_PEPPER` | `change-me-auth-pepper-please` | Pepper da verificacao de senha em dev/test; obrigatorio trocar em producao |
 | `REQUEST_TIMEOUT_MS` | `3000` | Timeout global de request |
 | `IDEMPOTENCY_TTL_HOURS` | `24` | Janela de replay idempotente |
 | `LICENSE_ENGINE_STRATEGY` | `auto` | Seleciona engine (`auto`, `fake`, `prisma`) |
@@ -31,6 +35,11 @@ Nota License Engine Strategy:
 - `auto`: usa `fake` em `NODE_ENV=test` e `prisma` em `development/production`.
 - `fake`: permitido apenas fora de `production`.
 - `prisma`: forca adapter Prisma em qualquer ambiente (incluindo `test`).
+
+Nota CORS:
+- em `production`, `CORS_ALLOWED_ORIGINS` e obrigatoria e deve listar origins HTTPS separados por virgula;
+- `*` nao e aceito com credenciais;
+- em `development` e `test`, quando a variavel fica vazia, o servidor continua permissivo para facilitar o fluxo local.
 
 Runbook de rollout:
 - [Rollout da estrategia do License Engine](./license-engine-rollout.md)
@@ -98,13 +107,18 @@ Arquivo de orquestracao:
 Variaveis esperadas (base: `.env.prod.example`):
 - `PUBLIC_DOMAIN`
 - `BASIC_AUTH_USER`
+- `POSTGRES_PASSWORD`
 - `INTERNAL_ADMIN_API_KEYS`
 - `ADMIN_INTERNAL_API_KEY`
+- `CORS_ALLOWED_ORIGINS`
 - `ADMIN_WEB_ENABLE_MUTATIONS`
 - `CF_API_TOKEN`
 - `CF_ZONE_ID`
 - `CF_RECORD_NAME`
 - `JWT_SECRET`
+- `ACCESS_JWT_SECRET`
+- `REFRESH_JWT_SECRET`
+- `AUTH_PASSWORD_PEPPER`
 - `DATABASE_URL`
 - `REDIS_URL`
 

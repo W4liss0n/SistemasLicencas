@@ -81,10 +81,15 @@ jobs:
           cp .env.prod.example .env.ci
           cat >> .env.ci <<'EOF'
           PUBLIC_DOMAIN=localhost
-          DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sistema_licencas_v2
+          POSTGRES_PASSWORD=ci-postgres-password
+          DATABASE_URL=postgresql://postgres:ci-postgres-password@postgres:5432/sistema_licencas_v2
           REDIS_URL=redis://redis:6379
           JWT_SECRET=ci-secret-at-least-32-characters
+          ACCESS_JWT_SECRET=ci-access-secret-at-least-32-characters
+          REFRESH_JWT_SECRET=ci-refresh-secret-at-least-32-characters
+          AUTH_PASSWORD_PEPPER=ci-auth-pepper-at-least-32-characters
           INTERNAL_ADMIN_API_KEYS=ci-internal-admin-key
+          CORS_ALLOWED_ORIGINS=https://localhost
           ADMIN_INTERNAL_API_KEY=ci-internal-admin-key
           ADMIN_WEB_ENABLE_MUTATIONS=false
           CF_API_TOKEN=ci-unused-token

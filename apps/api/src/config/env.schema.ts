@@ -13,6 +13,64 @@ const booleanEnv = z.preprocess((value) => {
   return value;
 }, z.boolean());
 
+const corsAllowedOriginsEnv = z
+  .preprocess((value) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }, z.array(z.string()).default([]))
+  .transform((origins, context) => {
+    const normalizedOrigins = new Set<string>();
+
+    for (const origin of origins) {
+      if (origin === '*') {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'wildcard origin is not allowed'
+        });
+        continue;
+      }
+
+      try {
+        const parsed = new URL(origin);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `${origin} must use http or https`
+          });
+          continue;
+        }
+
+        normalizedOrigins.add(parsed.origin);
+      } catch {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${origin} must be a valid URL origin`
+        });
+      }
+    }
+
+    return Array.from(normalizedOrigins);
+  });
+
+function isPlaceholderSecret(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized.startsWith('change-me') ||
+    normalized.startsWith('dev_') ||
+    normalized === 'change-me-auth-pepper-please'
+  );
+}
+
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
@@ -41,6 +99,7 @@ export const envSchema = z.object({
   IDEMPOTENCY_TTL_HOURS: z.coerce.number().int().positive().default(24),
   LICENSE_ENGINE_STRATEGY: z.enum(['auto', 'fake', 'prisma']).default('auto'),
   INTERNAL_ADMIN_API_KEYS: z.string().min(1).default('dev-internal-admin-key'),
+  CORS_ALLOWED_ORIGINS: corsAllowedOriginsEnv,
   OTEL_ENABLED: booleanEnv.default(false),
   OTEL_SERVICE_NAME: z.string().min(1).default('sistema-licencas-v2'),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
@@ -53,6 +112,88 @@ export const envSchema = z.object({
       path: ['LICENSE_ENGINE_STRATEGY'],
       message: 'fake is not allowed when NODE_ENV=production'
     });
+  }
+
+  if (value.NODE_ENV === 'production' && value.CORS_ALLOWED_ORIGINS.length === 0) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['CORS_ALLOWED_ORIGINS'],
+      message: 'CORS_ALLOWED_ORIGINS is required in production'
+    });
+  }
+
+  if (
+    value.NODE_ENV === 'production' &&
+    value.CORS_ALLOWED_ORIGINS.some((origin) => !origin.startsWith('https://'))
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['CORS_ALLOWED_ORIGINS'],
+      message: 'production CORS origins must use https'
+    });
+  }
+
+  if (value.NODE_ENV === 'production' && value.DATABASE_URL.includes(':postgres@')) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['DATABASE_URL'],
+      message: 'default postgres password is not allowed in production DATABASE_URL'
+    });
+  }
+
+  if (value.NODE_ENV === 'production') {
+    for (const key of ['ACCESS_JWT_SECRET', 'REFRESH_JWT_SECRET'] as const) {
+      if (!value[key]) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} is required in production`
+        });
+      }
+    }
+
+    if (value.ACCESS_JWT_SECRET && value.ACCESS_JWT_SECRET === value.JWT_SECRET) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ACCESS_JWT_SECRET'],
+        message: 'ACCESS_JWT_SECRET must be different from JWT_SECRET in production'
+      });
+    }
+
+    if (value.REFRESH_JWT_SECRET && value.REFRESH_JWT_SECRET === value.JWT_SECRET) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['REFRESH_JWT_SECRET'],
+        message: 'REFRESH_JWT_SECRET must be different from JWT_SECRET in production'
+      });
+    }
+
+    if (
+      value.ACCESS_JWT_SECRET &&
+      value.REFRESH_JWT_SECRET &&
+      value.ACCESS_JWT_SECRET === value.REFRESH_JWT_SECRET
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['REFRESH_JWT_SECRET'],
+        message: 'REFRESH_JWT_SECRET must be different from ACCESS_JWT_SECRET in production'
+      });
+    }
+  }
+
+  for (const key of [
+    'JWT_SECRET',
+    'ACCESS_JWT_SECRET',
+    'REFRESH_JWT_SECRET',
+    'AUTH_PASSWORD_PEPPER'
+  ] as const) {
+    if (value.NODE_ENV === 'production' && isPlaceholderSecret(value[key])) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: 'placeholder secret is not allowed in production'
+      });
+    }
   }
 
   const internalAdminKeys = value.INTERNAL_ADMIN_API_KEYS.split(',')

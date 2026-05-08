@@ -1,70 +1,28 @@
 import { HttpStatus } from '@nestjs/common';
-import { randomBytes } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
 import { DomainHttpError } from '../../../../common/errors/domain-http-error';
 import type { PrismaService } from '../../../../infra/prisma/prisma.service';
-import type {
-  AdminCustomerSummary,
-  AdminPlanSummary,
-  AdminProgramSummary,
-  OnboardCustomerInput
-} from '../../ports/admin-backoffice.port';
-
-export type ProgramSummaryRecord = {
-  id: string;
-  code: string;
-  name: string;
-  description: string | null;
-  status: string;
-  metadata: Prisma.JsonValue;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type PlanSummaryRecord = {
-  id: string;
-  code: string;
-  name: string;
-  description: string | null;
-  maxDevices: number;
-  maxOfflineHours: number;
-  features: Prisma.JsonValue;
-  createdAt: Date;
-  updatedAt: Date;
-  planPrograms: Array<{
-    program: ProgramSummaryRecord;
-  }>;
-};
-
-export type CustomerSummaryRecord = {
-  id: string;
-  email: string;
-  name: string;
-  document: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  subscriptions: Array<{
-    status: string;
-    createdAt: Date;
-    _count: { licenses: number };
-  }>;
-};
-
-export type InternalProgramRecord = {
-  id: string;
-  code: string;
-  name: string;
-  status: string;
-};
-
-export type InternalPlanRecord = {
-  id: string;
-  code: string;
-  name: string;
-  maxDevices: number;
-  maxOfflineHours: number;
-  features: Prisma.JsonValue;
-};
+import type { OnboardCustomerInput } from '../../ports/admin-backoffice.port';
+import {
+  generateLicenseKey,
+  generatePlanCode,
+  generateProgramCode
+} from './prisma-admin-code-generator';
+import {
+  resolveOnboardingSelection,
+  type InternalPlanRecord,
+  type InternalProgramRecord
+} from './prisma-admin-onboarding-selection.resolver';
+import {
+  toCustomerSummary,
+  toPlanSummary,
+  toProgramSummary,
+  toRecord,
+  toStringArray,
+  type CustomerSummaryRecord,
+  type PlanSummaryRecord,
+  type ProgramSummaryRecord
+} from './prisma-admin-summary.mapper';
 
 export type PrismaAdminPagination = {
   page: number;
@@ -249,210 +207,7 @@ export class PrismaAdminBackofficeSupport {
     input: OnboardCustomerInput,
     selectionMode: 'plan' | 'individual_program'
   ): Promise<{ plan: InternalPlanRecord; program: InternalProgramRecord }> {
-    if (selectionMode === 'individual_program') {
-      const programId = this.normalizeRequiredText(input.programId ?? '', 'program_id');
-      const program = await tx.program.findUnique({
-        where: { id: programId }
-      });
-      if (!program || program.status !== 'active') {
-        this.throwDomainError(HttpStatus.NOT_FOUND, 'program_not_found', 'Program not found');
-      }
-
-      const plan = await this.getOrCreateInternalPlanForProgram(tx, program);
-      return {
-        plan,
-        program: {
-          id: program.id,
-          code: program.code,
-          name: program.name,
-          status: program.status
-        }
-      };
-    }
-
-    const planId = this.normalizeRequiredText(input.planId ?? '', 'plan_id');
-    const plan = await tx.plan.findUnique({
-      where: { id: planId },
-      include: {
-        planPrograms: {
-          include: { program: true }
-        }
-      }
-    });
-    if (!plan) {
-      this.throwDomainError(HttpStatus.NOT_FOUND, 'plan_not_found', 'Plan not found');
-    }
-
-    const availablePrograms = plan.planPrograms
-      .map((planProgram) => planProgram.program)
-      .filter((program) => program.status === 'active')
-      .sort((left, right) => {
-        const byName = left.name.localeCompare(right.name);
-        if (byName !== 0) {
-          return byName;
-        }
-        const byCode = left.code.localeCompare(right.code);
-        if (byCode !== 0) {
-          return byCode;
-        }
-        return left.id.localeCompare(right.id);
-      });
-
-    if (availablePrograms.length === 0) {
-      this.throwDomainError(
-        HttpStatus.FORBIDDEN,
-        'program_not_included',
-        'Plan is not authorized for this program'
-      );
-    }
-
-    if (!input.programId) {
-      return {
-        plan: {
-          id: plan.id,
-          code: plan.code,
-          name: plan.name,
-          maxDevices: plan.maxDevices,
-          maxOfflineHours: plan.maxOfflineHours,
-          features: plan.features
-        },
-        program: {
-          id: availablePrograms[0].id,
-          code: availablePrograms[0].code,
-          name: availablePrograms[0].name,
-          status: availablePrograms[0].status
-        }
-      };
-    }
-
-    const programId = this.normalizeRequiredText(input.programId, 'program_id');
-    const program = availablePrograms.find((candidate) => candidate.id === programId);
-    if (!program) {
-      this.throwDomainError(
-        HttpStatus.FORBIDDEN,
-        'program_not_included',
-        'Plan is not authorized for this program'
-      );
-    }
-
-    return {
-      plan: {
-        id: plan.id,
-        code: plan.code,
-        name: plan.name,
-        maxDevices: plan.maxDevices,
-        maxOfflineHours: plan.maxOfflineHours,
-        features: plan.features
-      },
-      program: {
-        id: program.id,
-        code: program.code,
-        name: program.name,
-        status: program.status
-      }
-    };
-  }
-
-  async getOrCreateInternalPlanForProgram(
-    tx: Prisma.TransactionClient,
-    program: { id: string; code: string; name: string }
-  ): Promise<InternalPlanRecord> {
-    const code = `__program_individual__${program.code}`;
-
-    let plan = await tx.plan.findUnique({
-      where: { code },
-      include: {
-        planPrograms: {
-          include: { program: true }
-        }
-      }
-    });
-
-    if (!plan) {
-      const created = await tx.plan.create({
-        data: {
-          code,
-          name: `Programa individual - ${program.name}`,
-          description: `Plano interno para ${program.name}`,
-          isInternal: true,
-          maxDevices: 1,
-          maxOfflineHours: 72,
-          features: ['validate', 'heartbeat'] as Prisma.InputJsonValue,
-          planPrograms: {
-            create: [{ programId: program.id }]
-          }
-        },
-        include: {
-          planPrograms: {
-            include: { program: true }
-          }
-        }
-      });
-
-      return {
-        id: created.id,
-        code: created.code,
-        name: created.name,
-        maxDevices: created.maxDevices,
-        maxOfflineHours: created.maxOfflineHours,
-        features: created.features
-      };
-    }
-
-    await tx.plan.update({
-      where: { id: plan.id },
-      data: {
-        name: `Programa individual - ${program.name}`,
-        description: `Plano interno para ${program.name}`,
-        isInternal: true,
-        maxDevices: 1,
-        maxOfflineHours: 72,
-        features: ['validate', 'heartbeat'] as Prisma.InputJsonValue
-      }
-    });
-
-    await tx.planProgram.deleteMany({
-      where: {
-        planId: plan.id,
-        programId: {
-          not: program.id
-        }
-      }
-    });
-
-    const existingLink = await tx.planProgram.findFirst({
-      where: {
-        planId: plan.id,
-        programId: program.id
-      }
-    });
-
-    if (!existingLink) {
-      await tx.planProgram.create({
-        data: {
-          planId: plan.id,
-          programId: program.id
-        }
-      });
-    }
-
-    plan = await tx.plan.findUniqueOrThrow({
-      where: { id: plan.id },
-      include: {
-        planPrograms: {
-          include: { program: true }
-        }
-      }
-    });
-
-    return {
-      id: plan.id,
-      code: plan.code,
-      name: plan.name,
-      maxDevices: plan.maxDevices,
-      maxOfflineHours: plan.maxOfflineHours,
-      features: plan.features
-    };
+    return resolveOnboardingSelection(tx, input, selectionMode);
   }
 
   async loadLicenseContext(licenseKeyInput: string): Promise<PrismaAdminLicenseContext> {
@@ -572,52 +327,16 @@ export class PrismaAdminBackofficeSupport {
     );
   }
 
-  toProgramSummary(input: ProgramSummaryRecord): AdminProgramSummary {
-    return {
-      id: input.id,
-      code: input.code,
-      name: input.name,
-      description: input.description,
-      status: input.status,
-      metadata: this.toRecord(input.metadata),
-      createdAt: input.createdAt.toISOString(),
-      updatedAt: input.updatedAt.toISOString()
-    };
+  toProgramSummary(input: ProgramSummaryRecord) {
+    return toProgramSummary(input);
   }
 
-  toPlanSummary(input: PlanSummaryRecord): AdminPlanSummary {
-    return {
-      id: input.id,
-      code: input.code,
-      name: input.name,
-      description: input.description,
-      maxDevices: input.maxDevices,
-      maxOfflineHours: input.maxOfflineHours,
-      features: this.toStringArray(input.features),
-      createdAt: input.createdAt.toISOString(),
-      updatedAt: input.updatedAt.toISOString(),
-      programs: input.planPrograms
-        .map((planProgram) => this.toProgramSummary(planProgram.program))
-        .sort((left, right) => left.name.localeCompare(right.name))
-    };
+  toPlanSummary(input: PlanSummaryRecord) {
+    return toPlanSummary(input);
   }
 
-  toCustomerSummary(input: CustomerSummaryRecord): AdminCustomerSummary {
-    const licensesCount = input.subscriptions.reduce(
-      (total, subscription) => total + subscription._count.licenses,
-      0
-    );
-
-    return {
-      id: input.id,
-      email: input.email,
-      name: input.name,
-      document: input.document,
-      createdAt: input.createdAt.toISOString(),
-      updatedAt: input.updatedAt.toISOString(),
-      licensesCount,
-      lastSubscriptionStatus: input.subscriptions[0]?.status ?? null
-    };
+  toCustomerSummary(input: CustomerSummaryRecord) {
+    return toCustomerSummary(input);
   }
 
   async writeAuditLog(input: {
@@ -748,31 +467,19 @@ export class PrismaAdminBackofficeSupport {
   }
 
   generateProgramCode(name: string): string {
-    const slug = this.slugifyForCode(name).slice(0, 30);
-    const suffix = randomBytes(2).toString('hex');
-    return `${slug}-${suffix}`;
+    return generateProgramCode(name);
   }
 
   generatePlanCode(name: string): string {
-    const slug = this.slugifyForCode(name).slice(0, 30);
-    const suffix = randomBytes(2).toString('hex');
-    return `${slug}-${suffix}`;
+    return generatePlanCode(name);
   }
 
   toRecord(value: Prisma.JsonValue): Record<string, unknown> {
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      return value as Record<string, unknown>;
-    }
-
-    return {};
+    return toRecord(value);
   }
 
   toStringArray(value: Prisma.JsonValue): string[] {
-    if (!Array.isArray(value)) {
-      return [];
-    }
-
-    return value.filter((item): item is string => typeof item === 'string');
+    return toStringArray(value);
   }
 
   extractPrismaCode(error: unknown): string | undefined {
@@ -780,10 +487,7 @@ export class PrismaAdminBackofficeSupport {
   }
 
   generateLicenseKey(programCode: string): string {
-    const normalizedProgram =
-      programCode.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6) || 'GEN';
-    const randomPart = randomBytes(6).toString('hex').toUpperCase();
-    return `LIC-${normalizedProgram}-${randomPart}`;
+    return generateLicenseKey(programCode);
   }
 
   normalizeCode(input: string, field: string): string {
@@ -857,16 +561,5 @@ export class PrismaAdminBackofficeSupport {
       code,
       detail
     });
-  }
-
-  private slugifyForCode(value: string): string {
-    const normalized = value
-      .normalize('NFKD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-
-    return normalized.length > 0 ? normalized : 'item';
   }
 }

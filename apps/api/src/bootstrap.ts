@@ -27,9 +27,11 @@ export async function createApp(): Promise<NestFastifyApplication> {
 
   const configService = app.get(AppConfigService);
   const metricsService = app.get(MetricsService);
+  const corsOrigin =
+    configService.corsAllowedOrigins.length > 0 ? configService.corsAllowedOrigins : true;
 
   await app.register(helmet);
-  await app.register(cors, { origin: true, credentials: true });
+  await app.register(cors, { origin: corsOrigin, credentials: true });
   await app.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',
