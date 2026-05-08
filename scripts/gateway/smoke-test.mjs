@@ -31,6 +31,9 @@ async function run() {
   const internalDirect = await fetch(`${baseUrl}/api/v2/internal/admin/operational-summary`, { redirect: 'manual' });
   assertStatus('internal-admin-direct', internalDirect.status, 403);
 
+  const metricsDirect = await fetch(`${baseUrl}/api/v2/metrics`, { redirect: 'manual' });
+  assertStatus('metrics-direct', metricsDirect.status, 403);
+
   const authHeader = basicAuthHeader();
   if (!authHeader) {
     throw new Error('GATEWAY_BASIC_AUTH_USER and GATEWAY_BASIC_AUTH_PASSWORD are required');

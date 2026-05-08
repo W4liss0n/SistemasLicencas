@@ -88,9 +88,9 @@ jobs:
           ACCESS_JWT_SECRET=ci-access-secret-at-least-32-characters
           REFRESH_JWT_SECRET=ci-refresh-secret-at-least-32-characters
           AUTH_PASSWORD_PEPPER=ci-auth-pepper-at-least-32-characters
-          INTERNAL_ADMIN_API_KEYS=ci-internal-admin-key
+          INTERNAL_ADMIN_API_KEYS=ci-internal-admin-key-at-least-32-characters
           CORS_ALLOWED_ORIGINS=https://localhost
-          ADMIN_INTERNAL_API_KEY=ci-internal-admin-key
+          ADMIN_INTERNAL_API_KEY=ci-internal-admin-key-at-least-32-characters
           ADMIN_WEB_ENABLE_MUTATIONS=false
           CF_API_TOKEN=ci-unused-token
           CF_ZONE_ID=ci-unused-zone

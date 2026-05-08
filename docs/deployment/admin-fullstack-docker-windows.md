@@ -38,7 +38,7 @@ Ajustar obrigatoriamente no `.env.prod`:
 - `ACCESS_JWT_SECRET=<segredo-forte-para-access-token>` (diferente de `JWT_SECRET`)
 - `REFRESH_JWT_SECRET=<segredo-forte-para-refresh-token>` (diferente de `JWT_SECRET` e de `ACCESS_JWT_SECRET`)
 - `AUTH_PASSWORD_PEPPER=<pepper-forte-para-credenciais>`
-- `INTERNAL_ADMIN_API_KEYS=<chave-interna-forte>`
+- `INTERNAL_ADMIN_API_KEYS=<chave-interna-forte-com-32-ou-mais-caracteres>`
 - `ADMIN_INTERNAL_API_KEY=<mesma-chave-interna-forte>`
 - `CORS_ALLOWED_ORIGINS=https://admin.seu-dominio.com`
 - `ADMIN_AUTH_ENABLED=false` (habilitar depois que Auth0 estiver configurado)
@@ -147,6 +147,7 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml down
 
 ## Checklist de seguranca minima
 - Nao usar `dev-internal-admin-key` em producao.
+- Usar `INTERNAL_ADMIN_API_KEYS` com 32 ou mais caracteres por chave.
 - Trocar todos os valores `change-me-*` de segredos antes de subir a API.
 - Nao manter `postgres` como senha do banco em producao.
 - Manter `CORS_ALLOWED_ORIGINS` restrito ao dominio HTTPS publicado.
