@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { parseAdminAuthRequiredScopes } from './admin-auth-scopes';
 
+const PRODUCTION_INTERNAL_ADMIN_KEY_MIN_LENGTH = 32;
+
 const booleanEnv = z.preprocess((value) => {
   if (typeof value === 'string') {
     const normalized = value.trim().toLowerCase();
@@ -83,7 +85,9 @@ function isPlaceholderSecret(value: string | undefined): boolean {
   const normalized = value.trim().toLowerCase();
   return (
     normalized.startsWith('change-me') ||
+    normalized.startsWith('replace-with') ||
     normalized.startsWith('dev_') ||
+    normalized.startsWith('dev-') ||
     normalized === 'change-me-auth-pepper-please'
   );
 }
@@ -236,6 +240,26 @@ export const envSchema = z.object({
       path: ['INTERNAL_ADMIN_API_KEYS'],
       message: 'default internal admin key is not allowed in production'
     });
+  }
+
+  if (value.NODE_ENV === 'production') {
+    for (const key of internalAdminKeys) {
+      if (key.length < PRODUCTION_INTERNAL_ADMIN_KEY_MIN_LENGTH) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['INTERNAL_ADMIN_API_KEYS'],
+          message: `internal admin keys must be at least ${PRODUCTION_INTERNAL_ADMIN_KEY_MIN_LENGTH} characters in production`
+        });
+      }
+
+      if (isPlaceholderSecret(key)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['INTERNAL_ADMIN_API_KEYS'],
+          message: 'placeholder internal admin keys are not allowed in production'
+        });
+      }
+    }
   }
 
   if (value.END_USER_AUTH_ENABLED) {

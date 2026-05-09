@@ -9,6 +9,7 @@
 | `ACCESS_JWT_SECRET` | Segredo para tokens de acesso; em producao e obrigatorio, nao pode ficar com placeholder e deve ser diferente de `JWT_SECRET` |
 | `REFRESH_JWT_SECRET` | Segredo para refresh tokens; em producao e obrigatorio, nao pode ficar com placeholder e deve ser diferente de `JWT_SECRET` e de `ACCESS_JWT_SECRET` |
 | `AUTH_PASSWORD_PEPPER` | Pepper de credenciais; em producao nao pode ficar com placeholder |
+| `INTERNAL_ADMIN_API_KEYS` | Chaves internas do gateway/admin; em producao cada entrada deve ter ao menos 32 caracteres e nao pode ficar com placeholder |
 | `CORS_ALLOWED_ORIGINS` | Origens HTTPS autorizadas para CORS em producao |
 
 Obrigatorias apenas quando `ADMIN_AUTH_ENABLED=true`:

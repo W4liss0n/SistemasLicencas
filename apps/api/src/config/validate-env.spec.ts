@@ -12,7 +12,7 @@ function baseProductionEnv(overrides: Record<string, string> = {}): Record<strin
     ACCESS_JWT_SECRET: 'this-is-a-very-long-access-secret-123456',
     REFRESH_JWT_SECRET: 'this-is-a-very-long-refresh-secret-123456',
     AUTH_PASSWORD_PEPPER: 'this-is-a-very-long-prod-pepper-123456',
-    INTERNAL_ADMIN_API_KEYS: 'production-internal-key',
+    INTERNAL_ADMIN_API_KEYS: 'production-internal-key-with-32-characters',
     CORS_ALLOWED_ORIGINS: 'https://admin.example.com',
     LICENSE_ENGINE_STRATEGY: 'auto',
     ...overrides
@@ -69,6 +69,19 @@ describe('validateEnv', () => {
       )
     ).toThrow('Invalid environment configuration');
   });
+
+  it.each(['short-internal-key', 'replace-with-internal-admin-key', 'dev_internal_admin_key_with_32_chars'])(
+    'throws when production uses weak internal admin key %s',
+    (INTERNAL_ADMIN_API_KEYS) => {
+      expect(() =>
+        validateEnv(
+          baseProductionEnv({
+            INTERNAL_ADMIN_API_KEYS
+          })
+        )
+      ).toThrow('Invalid environment configuration');
+    }
+  );
 
   it('throws when production does not declare a CORS allowlist', () => {
     expect(() =>
